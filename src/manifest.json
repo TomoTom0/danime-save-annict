@@ -1,15 +1,15 @@
 {
   "manifest_version": 2,
-  "name": "danime-save-annict",
-  "version": "1.0.2",
-  "description": "dアニメの視聴結果をannictに送る",
+  "name": "my-danime-save-annict-2",
+  "version": "0.0.1.0",
+  "description": "dアニメの視聴結果をannictに送る (改良版)",
   "content_scripts": [
     {
       "matches": [
         "https://anime.dmkt-sp.jp/animestore/sc_d_pc?partId*"
       ],
       "js": [
-        "scripts/index.js"
+        "scripts/index.js", "js/jquery-3.5.1.min.js"
       ]
     }
   ],
