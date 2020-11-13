@@ -28,10 +28,10 @@ window.onload = function () {
     video.addEventListener("ended", () => { // video ended
         sendAnnict();
     });
-    const nextButton = $(".nextButton").get(0)
+    /*const nextButton = $(".nextButton").get(0)
     nextButton.addEventListener("click", () => { // video skipped
         sendAnnict();
-    });
+    });*/
 
     let GLOBAL_notSent = true;
 
@@ -68,8 +68,8 @@ window.onload = function () {
                 };
                 if (episode.Number == danime.Number || episode.Check) {
                     console.log(danime);
-                    //const status = await postRecord(episode_node.annictId);
-                    //showMessage(`${danime.Title} ${danime.EpisodeNumber} Annict send ${status}.`);
+                    const status = await postRecord(episode_node.annictId);
+                    showMessage(`${danime.Title} ${danime.EpisodeNumber} Annict send ${status}.`);
                     sendResult = true;
                     break;
                 }
@@ -218,6 +218,7 @@ function toArb(input_kanji) {
 };
 
 //----------------- not used functions ---------------
+// not modified
 
 function getWorkId(titleText, callback) {
     var myObject = {
