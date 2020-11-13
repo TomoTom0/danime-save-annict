@@ -2,7 +2,7 @@
   "manifest_version": 2,
   "name": "my-danime-save-annict-2",
   "version": "0.0.1.0",
-  "description": "dアニメの視聴結果をannictに送る (改良版)",
+  "description": "dアニメの視聴結果をAnnictに送信します。 (改良版)",
   "content_scripts": [
     {
       "matches": [
