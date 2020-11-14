@@ -14,10 +14,6 @@ link.rel = "stylesheet";
 (document.head || document.documentElement).appendChild(link);
 
 window.onload=function () {
-    $("#shawOAuth").on( "click",function () {
-        window.open("https://kakunpc.com/danime/openAnnict.php", '', 'location=no, width=640, height=480');
-    });
-
     $("#save").on("click", function () {
         const token = $("#message").val();
         chrome.storage.sync.set({ token: token });

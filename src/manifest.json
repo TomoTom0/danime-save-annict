@@ -1,8 +1,8 @@
 {
   "manifest_version": 2,
-  "name": "my-danime-save-annict-2",
+  "name": "danime-save-annict-2",
   "version": "0.0.1.0",
-  "description": "dアニメの視聴結果をAnnictに送信します。 (改良版)",
+  "description": "dアニメストアの視聴結果をAnnictに送信します。 (改良版)",
   "content_scripts": [
     {
       "matches": [
@@ -18,13 +18,10 @@
     "open_in_tab": true
   },
   "permissions": [
-    "https://jp.annict.com/*",
-    "https://api.annict.com/oauth/token",
-    "https://kakunpc.com/danime.html",
-    "storage",
-    "unlimitedStorage",
-    "tabs"
+    "https://api.annict.com/*",
+    "storage"
   ],
+  "icons":{"128":"img/d-annict-icon128.png"},
   "web_accessible_resources":[
     "js/iziToast.min.js",
     "styles/iziToast.min.css"

@@ -103,7 +103,7 @@ function remakeString(input_str,mode="title"){
     } else if (mode=="title"){
         return input_str.replace(/[Ａ-Ｚａ-ｚ０-９：]/g, s => // 全角=>半角
             String.fromCharCode(s.charCodeAt(0) - 65248))
-            .repalce(new RegExp(delete_array.join("|"), "g"), "")
+            .replace(new RegExp(delete_array.join("|"), "g"), "")
             .replace(new RegExp(Object.keys(remake_dic).join("|"), "g"), match=> remake_dic[match] );
     }
 }
