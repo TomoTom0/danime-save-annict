@@ -23,7 +23,7 @@ window.onload = function () {
         GLOBAL_notSent = true;
         setTimeout(() => { // in 5 min until video started
             sendAnnict();
-        }, 300 * 1000)
+        }, 5 * 1000)
     });
     video.addEventListener("ended", () => { // video ended
         sendAnnict();
@@ -67,7 +67,6 @@ window.onload = function () {
                     Check: checkTitle([danime.EpisodeTitle, episode_node.title], "every") // danime.EpisodeTitle in episode_node.Title
                 };
                 if (episode.Number == danime.Number || episode.Check) {
-                    console.log(danime);
                     const status = await postRecord(episode_node.annictId);
                     showMessage(`${danime.Title} ${danime.EpisodeNumber} Annict send ${status}.`);
                     sendResult = true;
@@ -115,9 +114,9 @@ function title2number(str) {
 
 function checkTitle(titles, mode="length") {
     if (titles.some(d => !d)) return false;
-    const titles_splited = titles.map(d => remakeString(d, "title").split(GLOBAL_sep));
-    if (mode=="length") return titles_splited[0].filter(d => titles_splited[1].indexOf(d) != -1).length;
-    else if (mode=="every") return titles_splited[0].every(d => titles_splited[1].indexOf(d) != -1);
+    const titles_splited = titles.map(d => remakeString(d, "title").split(GLOBAL_sep).filter(dd=>dd));
+    if (mode=="length") return titles_splited[0].filter(d => titles_splited[1].join("").indexOf(d) != -1).length;
+    else if (mode=="every") return titles_splited[0].every(d => titles_splited[1].join("").indexOf(d) != -1);
 }
 
 
