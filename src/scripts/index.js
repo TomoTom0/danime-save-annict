@@ -23,7 +23,7 @@ window.onload = function () {
         GLOBAL_notSent = true;
         setTimeout(() => { // in 5 min until video started
             sendAnnict();
-        }, 300 * 1000)
+        }, 5 * 1000)
     });
     video.addEventListener("ended", () => { // video ended
         sendAnnict();
@@ -67,7 +67,6 @@ window.onload = function () {
                     Check: checkTitle([danime.EpisodeTitle, episode_node.title], "every") // danime.EpisodeTitle in episode_node.Title
                 };
                 if (episode.Number == danime.Number || episode.Check) {
-                    console.log(danime);
                     const status = await postRecord(episode_node.annictId);
                     showMessage(`${danime.Title} ${danime.EpisodeNumber} Annict send ${status}.`);
                     sendResult = true;
