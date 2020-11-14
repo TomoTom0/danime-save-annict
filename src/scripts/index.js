@@ -23,7 +23,7 @@ window.onload = function () {
         GLOBAL_notSent = true;
         setTimeout(() => { // in 5 min until video started
             sendAnnict();
-        }, 5 * 1000)
+        }, 300 * 1000)
     });
     video.addEventListener("ended", () => { // video ended
         sendAnnict();
