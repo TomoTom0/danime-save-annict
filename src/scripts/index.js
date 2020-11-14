@@ -115,9 +115,9 @@ function title2number(str) {
 
 function checkTitle(titles, mode="length") {
     if (titles.some(d => !d)) return false;
-    const titles_splited = titles.map(d => remakeString(d, "title").split(GLOBAL_sep));
-    if (mode=="length") return titles_splited[0].filter(d => titles_splited[1].indexOf(d) != -1).length;
-    else if (mode=="every") return titles_splited[0].every(d => titles_splited[1].indexOf(d) != -1);
+    const titles_splited = titles.map(d => remakeString(d, "title").split(GLOBAL_sep).filter(dd=>dd));
+    if (mode=="length") return titles_splited[0].filter(d => titles_splited[1].join("").indexOf(d) != -1).length;
+    else if (mode=="every") return titles_splited[0].every(d => titles_splited[1].join("").indexOf(d) != -1);
 }
 
 
