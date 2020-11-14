@@ -49,10 +49,6 @@ dアニメストアの視聴結果をAnnictに送るChrome拡張です。[kakunp
 - [kakunpc / danime-save-annict](https://github.com/kakunpc/danime-save-annict)
 - [aok.blue.coocan.jp / kan2arb](http://aok.blue.coocan.jp/jscript/kan2arb.html)
 
-## Contact Me
-
-
-
 ## License
 MIT
 
