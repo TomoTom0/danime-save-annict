@@ -2,6 +2,7 @@
 const GLOBAL_sep = /\s|・|～|‐|-|―|－|&|＆|#|＃/g;
 let dsaDialog;
 
+
 // check access token
 let GLOBAL_access_token = "";
 chrome.storage.sync.get( { token: "" }, storage => {
@@ -22,11 +23,23 @@ window.onload = function () {
     video.addEventListener("loadstart", () => {
         GLOBAL_notSent = true;
         setTimeout(() => { // in 5 min until video started
-            sendAnnict();
+            const WatchingEpisode=JSON.stringify({
+                Title:$(".backInfoTxt1").text(),
+                EpisodeTitle:$(".backInfoTxt3")} );
+            chrome.storage.sync.get( { lastWatched: JSON.stringify({}) }, item=>{
+                if (item.lastWatched!=WatchingEpisode) sendAnnict(); // 視聴中断->再開した場合は重複送信しないように
+            });
+            chrome.storage.sync.set( { lastWatched: WatchingEpisode });
         }, 300 * 1000)
     });
     video.addEventListener("ended", () => { // video ended
-        sendAnnict();
+        const WatchingEpisode=JSON.stringify({
+            Title:$(".backInfoTxt1").text(),
+            EpisodeTitle:$(".backInfoTxt3")} );
+        chrome.storage.sync.get( { lastWatched: JSON.stringify({}) }, item=>{
+            if (item.lastWatched!=WatchingEpisode) sendAnnict(); // 視聴中断->再開した場合は重複送信しないように
+        });
+        chrome.storage.sync.set( { lastWatched: JSON.stringify({}) }); // 最後まで見たなら、同じエピソードでも連続記録OK
     });
     /*const nextButton = $(".nextButton").get(0)
     nextButton.addEventListener("click", () => { // video skipped
@@ -38,6 +51,10 @@ window.onload = function () {
     async function sendAnnict() {
         if (!GLOBAL_access_token || !GLOBAL_notSent) return;
         console.log("send Start");
+
+        //const GLOBAL_site=["https://anime.dmkt-sp.jp/animestore/sc_d_pc?partId*", # for Amazon Prime
+        //"https://www.amazon.co.jp/Amazon-Video/b?ie=UTF8&node="].filter(d=>location.href.indexOf(d)!=-1)
+
         const tmp_Title=remakeString($(".backInfoTxt1").text(), "title");
         const tmp_EpisodeNumber=remakeString($(".backInfoTxt2").text(), "episodeNumber");
 
@@ -63,10 +80,10 @@ window.onload = function () {
             if (episodes_nodes.length == 0) console.log("no episodes.");
             for (const episode_node of episodes_nodes) {
                 const episode = {
-                    Number: title2number(episode_node.numberText),
+                    //Number: title2number(episode_node.numberText),
                     Check: checkTitle([danime.EpisodeTitle, episode_node.title], "every") // danime.EpisodeTitle in episode_node.Title
                 };
-                if (episode.Number == danime.Number || episode.Check) {
+                if (episode.Check) { // episode.Number == danime.Number ||
                     const status = await postRecord(episode_node.annictId);
                     showMessage(`${danime.Title} ${danime.EpisodeNumber} Annict send ${status}.`);
                     sendResult = true;
