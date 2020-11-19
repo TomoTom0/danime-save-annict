@@ -1,5 +1,7 @@
 # d-anime-save-annict-2
 
+You can install from [Chrome Store URL](https://chrome.google.com/webstore/detail/danime-save-annict-2/kclfdffcicdnmfjaiikclpoldoojfnpj?hl=ja)
+
 ## Abstaract
 This Chrome extension sends your watching record in [d-anime store](https://anime.dmkt-sp.jp/animestore/tp_pc) to [Annict](https://annict.jp/).
 Forked from [kakunpc's Repository](https://github.com/kakunpc/danime-save-annict).

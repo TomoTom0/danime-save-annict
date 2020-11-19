@@ -19,6 +19,8 @@ window.onload = function () {
     $("<div>").addClass("dsa-dialog").text('Message').appendTo("body");
     dsaDialog = $(".dsa-dialog");
 
+    let GLOBAL_notSent = true;
+
     const video = $("#video").get(0);
     video.addEventListener("loadstart", () => {
         GLOBAL_notSent = true;
@@ -45,8 +47,6 @@ window.onload = function () {
     nextButton.addEventListener("click", () => { // video skipped
         sendAnnict();
     });*/
-
-    let GLOBAL_notSent = true;
 
     async function sendAnnict() {
         if (!GLOBAL_access_token || !GLOBAL_notSent) return;
@@ -176,7 +176,7 @@ async function fetchWork(title) {
         headers: headers };
     return await fetch(graphql_url, opts)
         .then(res => res.json())
-        .then(jsoned => jsoned.errors ? {} : jsoned.data.searchWorks.edges);
+        .then(jsoned => jsoned.errors ? [] : jsoned.data.searchWorks.edges);
 }
 
 
