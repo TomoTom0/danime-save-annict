@@ -1,5 +1,5 @@
 
-const GLOBAL_sep = /\s|・|～|‐|-|―|－|&|＆|#|＃/g;
+const GLOBAL_sep = /\s|;|・|～|‐|-|―|－|&|＆|#|＃/g;
 let dsaDialog;
 
 
@@ -63,36 +63,44 @@ window.onload = function () {
             EpisodeNumber: tmp_EpisodeNumber,
             EpisodeTitle: remakeString($(".backInfoTxt3").text(), "title"),
             Number : title2number(tmp_EpisodeNumber),
-            splitedTitle : tmp_Title.split(GLOBAL_sep) };
-
+            splitedTitle : tmp_Title.split(GLOBAL_sep),
+            workId: location.href.match(/(?<=partId=)\d{5}/)[0]};//partId=20073001
         const result_nodes = await fetchWork(danime.splitedTitle[0])
             .then(d => d.map(dd => dd.node));
         if (result_nodes.length == 0) {
             showMessage("No Hit Title. " + danime.Title);
             return; }
-        const checkTitleLengths = result_nodes.map(node=> checkTitle([node.title, danime.Title], "length") ) // node.Title in danime.Title
-        const checkTitleLength_max=checkTitleLengths.reduce( (acc,cur) => Math.max(acc,cur) );
-        const result_nodes_filtered=result_nodes.filter((_, ind)=> checkTitleLengths[ind]==checkTitleLength_max);
-        console.log(result_nodes_filtered);
-        let sendResult = false;
-        for (const node of result_nodes_filtered) {
-            const episodes_nodes = node.episodes.edges.map(d => d.node);
-            if (episodes_nodes.length == 0) console.log("no episodes.");
-            for (const episode_node of episodes_nodes) {
-                const episode = {
-                    //Number: title2number(episode_node.numberText),
-                    Check: checkTitle([danime.EpisodeTitle, episode_node.title], "every") // danime.EpisodeTitle in episode_node.Title
-                };
-                if (episode.Check) { // episode.Number == danime.Number ||
-                    const status = await postRecord(episode_node.annictId);
-                    showMessage(`${danime.Title} ${danime.EpisodeNumber} Annict send ${status}.`);
-                    sendResult = true;
-                    break;
-                }
-            }
-            break;
+        let goodWorkNodes = await checkTitleWithWorkId(danime.workId, result_nodes);
+        const workIdIsFound= !!(goodWorkNodes.length!=0);
+        if (!workIdIsFound) {
+            const checkTitleLengths = result_nodes.map(node=> checkTitle([node.title, danime.Title], "length") ) // node.Title in danime.Title
+            const checkTitleLength_max=checkTitleLengths.reduce( (acc,cur) => Math.max(acc,cur) );
+            goodWorkNodes=result_nodes.filter((_, ind)=> checkTitleLengths[ind]==checkTitleLength_max);
         }
-        if (!sendResult) showMessage(`${danime.Title} ${danime.EpisodeNumber} Annict send false.`);
+        console.log(goodWorkNodes);
+
+        let combinedEpisodeNode=[];
+        for (const workNode of goodWorkNodes) combinedEpisodeNode.push(...workNode.episodes.edges.map(d=>d.node));
+        let sendResult = false;
+        const episodes_numberAndCheck=combinedEpisodeNode.map(episode_node =>
+             [ workIdIsFound,
+                checkTitle([danime.EpisodeTitle, episode_node.title], "every"),
+                (episode_node.number || episode_node.sortNumber) == danime.Number, episode_node] )
+        const episodes_judges=episodes_numberAndCheck.map(d=>
+            [d[0]&&d[1]&&d[2], // workId is found and episode title & number corresponds
+            d[0]&&d[1], // workId is found and episode title corresponds
+             d[0]&&d[2], // workId is found and episode number corresponds
+              d[1], // episode title corresponds
+            d[3]]); // episode node
+        const judge_kinds=4;
+        const valid_check_methods=[...Array(judge_kinds).keys()].filter(num=>isNaN(episodes_judges.filter(d=>d[num])));
+        if (valid_check_methods.length>0){
+            const episode_node=episodes_judges.filter(d=>d[valid_check_methods[0]])[0][judge_kinds];
+            const status = await postRecord(episode_node.annictId);
+            showMessage(`${danime.Title} ${danime.EpisodeNumber} Annict sending ${status ? 'successed' : 'failed'}.`);
+            sendResult = true;
+        }
+        if (!sendResult) showMessage(`${danime.Title} ${danime.EpisodeNumber} Annict sendiing failed.`);
         GLOBAL_notSent = false;
     }
 
@@ -137,6 +145,28 @@ function checkTitle(titles, mode="length") {
 }
 
 
+async function checkTitleWithWorkId(danime_workId, work_nodes){
+    //現状、vod情報はREST APIやgraphQLから取得できない。(存在はしている)
+    let good_nodes = [];
+    for (const work_node of work_nodes){
+        const annictId=work_node.annictId
+
+        const db_url=`https://api.annict.com/db/works/${annictId}/programs`;
+        const db_reader=await fetch(db_url).then(d=>d.body)
+        .then(d=>d.getReader()).then(reader=>reader.read());
+        const db_html=new TextDecoder("utf-8").decode(db_reader.value);
+
+        const danime_info=$("tr", db_html).toArray()
+        .map(el => [$("td:eq(1)", el).text(), $("td:eq(5)", el).text()])
+        .filter(d=>d[0].indexOf("241")!=-1)
+        .map(d=> d.map(dd=>dd.match(/\d+/)[0]) )[0];
+        if (!danime_info) continue;
+        if (danime_workId==danime_info[1]) good_nodes.push(work_node);
+    }
+    return good_nodes;
+}
+
+
 async function postRecord(episodeId) {
     // AnnictへのPOST
     const url = `https://api.annict.com/v1/me/records?episode_id=${episodeId}&access_token=${GLOBAL_access_token}`;
@@ -153,13 +183,15 @@ async function fetchWork(title) {
             edges {
                 node {
                     title
+                    annictId
                     episodes(
                         orderBy: { field: SORT_NUMBER, direction: ASC },
                     ) {
                         edges {
                             node {
                             annictId
-                            numberText
+                            sortNumber
+                            number
                             title
                             }
                         }
