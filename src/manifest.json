@@ -1,8 +1,8 @@
 {
   "manifest_version": 2,
   "name": "danime-save-annict-2",
-  "version": "0.0.1.0",
-  "description": "dアニメストアの視聴結果をAnnictに送信します。 (後継版)",
+  "version": "0.2.0.0",
+  "description": "dアニメストアの視聴結果をAnnictに送信します。 (改良版)",
   "content_scripts": [
     {
       "matches": [
@@ -18,12 +18,12 @@
     "open_in_tab": true
   },
   "permissions": [
-    "https://api.annict.com/*",
+    "https://api.annict.com/*", "https://script.google.com/*",
     "storage"
   ],
   "icons":{"128":"img/d-annict-icon128.png"},
   "web_accessible_resources":[
     "js/iziToast.min.js",
-    "styles/iziToast.min.css"
+    "styles/iziToast.min.css", ".env"
   ]
 }

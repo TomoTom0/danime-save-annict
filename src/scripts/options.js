@@ -7,23 +7,28 @@ s.onload = function () {
 };
 (document.head || document.documentElement).appendChild(s);
 
-var link = document.createElement("link");
+const link = document.createElement("link");
 link.href = chrome.extension.getURL("styles/iziToast.min.css");
 link.type = "text/css";
 link.rel = "stylesheet";
 (document.head || document.documentElement).appendChild(link);
 
 window.onload=function () {
-    $("#save").on("click", function () {
-        const token = $("#message").val();
-        chrome.storage.sync.set({ token: token });
+    const input_keys=["token", "postUrl"];
+    input_keys.forEach(key=>
+        chrome.storage.sync.get( {[key]: ""}, items =>{
+                $(`#input_${key}`).val(items[key]);
+            }
+        )
+    )
+
+    $(".saveButton").on("click", function () {
+        const inputKey=$(this)[0].id.match(/(?<=btn_)\S+/)[0];
+        const inputContent = $(`#input_${inputKey}`).val();
+        chrome.storage.sync.set({ [inputKey]: inputContent });
             iziToast.show({
                 title: "OK",
                 message: "保存しました"
         })
-    });
-
-    chrome.storage.sync.get( {token: ""}, items =>
-        $("#message").val(items.token)
-    );
+    })
 };
