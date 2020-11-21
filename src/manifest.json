@@ -18,12 +18,12 @@
     "open_in_tab": true
   },
   "permissions": [
-    "https://api.annict.com/*",
+    "https://api.annict.com/*", "https://script.google.com/*",
     "storage"
   ],
   "icons":{"128":"img/d-annict-icon128.png"},
   "web_accessible_resources":[
     "js/iziToast.min.js",
-    "styles/iziToast.min.css"
+    "styles/iziToast.min.css", ".env"
   ]
 }

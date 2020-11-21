@@ -71,11 +71,14 @@ dアニメストアの視聴結果をAnnictに送るChrome拡張です。[kakunp
 - Annictから取得する話数は`number`および`sortNumber`を利用するようにした。
     - `number`が存在しないこともあるので、`episode_node.number || episode_node.sortNumber`で話数を取得する。
 
-
 ## Reference
 
 - [kakunpc / danime-save-annict](https://github.com/kakunpc/danime-save-annict)
 - [aok.blue.coocan.jp / kan2arb](http://aok.blue.coocan.jp/jscript/kan2arb.html)
+
+## Contact Me
+
+- Gmail: TomoIris427+GitHub@gmail.com
 
 ## License
 MIT

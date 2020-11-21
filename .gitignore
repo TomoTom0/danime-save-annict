@@ -1,4 +1,5 @@
 
 .idea*
 *Zone.Identifier
+.env
 
