@@ -39,10 +39,11 @@
 
             <div class="row">
                 <div class="col-lg-7">
+                    <h2 id="forms">Annict認証 (必須)</h2>
                     <div class="well bs-component">
                         <form class="form-horizontal">
                             <div class="form-group">
-                                <label for="message" class="col-lg-2 control-label">個人用アクセストークン</label>
+                                <label for="input_token" class="col-lg-2 control-label">アクセストークン</label>
                                 <div class="col-lg-10">
                                     <input type="text" class="form-control" id="input_token" placeholder="">
                                 </div>
@@ -54,12 +55,42 @@
                             </div>
                         </form>
                     </div>
+                    <h2 id="forms">オプション</h2>
+                    <div class="well bs-component">
+                        <form class="form-horizontal">
+                            <div class="form-group">
+                                <div class="col-lg-10">
+                                    <label class="custom-control-label" for="input_sendingTime">Annictへの送信タイミング: 再生開始からの経過時間(秒)</label>
+                                    <input type="number" class="form-control" id="input_sendingTime" placeholder="300">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <div class="col-lg-10 col-lg-offset-2">
+                                    <button id="btn_sendingTime" type="button" class="saveButton btn btn-primary">保存</button>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
                     <div class="well bs-component">
                         <form class="form-horizontal">
                             <div class="form-group">
                                 <label for="message" class="col-lg-2 control-label">Webhook Post URL</label>
                                 <div class="col-lg-10">
                                     <input type="text" class="form-control" id="input_postUrl" placeholder="">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <div class="custom-control custom-checkbox" id="check_webhookNoMatched">
+                                    <input type="checkbox" class="custom-control-input" checked>
+                                    <label class="custom-control-label" for="check_WebhookNoMatched">作品/エピソードが見つからなかった時</label>
+                                </div>
+                                <div class="custom-control custom-checkbox" id="check_webhookNoWorkId">
+                                    <input type="checkbox" class="custom-control-input">
+                                    <label class="custom-control-label" for="check_webhookNoWorkId">Annict DBにdアニメストアのWork IDが登録されていなかった時</label>
+                                </div>
+                                <div class="custom-control custom-checkbox" id="check_webhookSuccess">
+                                    <input type="checkbox" class="custom-control-input">
+                                    <label class="custom-control-label" for="check_webhookSuccees">エラーが起きなかった時 (上記以外の場合)</label>
                                 </div>
                             </div>
                             <div class="form-group">

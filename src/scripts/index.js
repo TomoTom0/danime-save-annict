@@ -4,12 +4,14 @@ const GLOBAL_sep = /\s|;|・|\(|（|～|‐|-|―|－|&|＆|#|＃/g;
 let dsaDialog;
 
 // check access token
-let GLOBAL_access_token = "";
-chrome.storage.sync.get({ token: "" }, storage => {
-    GLOBAL_access_token = storage.token;
-    if (GLOBAL_access_token == "") showMessage("The access token of `Annict` does not exist.");
+const inputObj = { "token": "", "sendingTime": 300, "postUrl": "", "webhookNoMatched": "", "webhookNoWorkId": "", "webhookSuccess": "" };
+let GLOBAL_storage = {};
+chrome.storage.sync.get(inputObj, storage => {
+    GLOBAL_storage = Object.keys(inputObj).reduce((obj, cur) => Object.assign(obj, { [cur]: storage[cur] }))
 })
-
+let GLOBAL_access_token = GLOBAL_storage.token;
+if (GLOBAL_access_token == "") showMessage("The access token of `Annict` does not exist.");
+if (GLOBAL_storage.sendingTime - 0 < 0) GLOBAL_storage.sendingTime = 300;
 
 window.onload = function () {
 
@@ -34,7 +36,7 @@ window.onload = function () {
                 if (item.lastWatched != WatchingEpisode) sendAnnict(); // 視聴中断->再開した場合は重複送信しないように
             });
             chrome.storage.sync.set({ lastWatched: WatchingEpisode });
-        }, 300 * 1000)
+        }, GLOBAL_storage.sendingTime * 1000)
     });
     video.addEventListener("ended", () => { // video ended
         const WatchingEpisode = JSON.stringify({
@@ -66,14 +68,14 @@ window.onload = function () {
             episodeNumber: tmp_episodeNumber,
             episodeTitle: remakeString($(".backInfoTxt3").text(), "title"),
             number: title2number(tmp_episodeNumber),
-            splitedTitle: tmp_title.split(GLOBAL_sep),
+            splitedTitle: tmp_workTitle.split(GLOBAL_sep),
             workId: location.href.match(/(?<=partId=)\d{5}/)[0]
         };//partId=20073001
         const result_nodes = await fetchWork(danime.splitedTitle[0])
             .then(d => d.map(dd => dd.node));
         if (result_nodes.length == 0) {
             showMessage("No Hit Title. " + danime.workTitle);
-            await post2GAS({ danime: danime, error: "NoHitTitle" });
+            await post2GAS({ danime: danime, error: "NoWorkMatched" });
             return;
         }
         let goodWorkNodes = await checkTitleWithWorkId(danime.workId, result_nodes);
@@ -107,10 +109,10 @@ window.onload = function () {
             sendResult = true;
         }
         if (!sendResult) showMessage(`${danime.workTitle} ${danime.episodeNumber} Annict sendiing failed.`);
-        const error_messages = [[!sendResult, "NoEpisodeMatched"], [!workIdIsFound, "NoWorkIdInAnnictDB"]].filter(d => d[0]);
+        const error_messages = [[!sendResult, "NoEpisodeMatched"], [!workIdIsFound, "NoWorkId"]].filter(d => d[0]);
         if (error_messages.length > 0) { // error or workId未登録の場合に指定したURLにwebhookを送信
             await post2GAS({ danime: danime, error: error_messages.map(d => d[1]).join(" ") });
-        }
+        } else await post2GAS({ danime: danime, error: "none" });
 
         GLOBAL_notSent = false;
     }
@@ -192,11 +194,16 @@ async function post2GAS(args_dict) {
     const postData = {
         workTitle: danime.workTitle, episodeNumber: danime.episodeNumber,
         episodeTitle: danime.episodeTitle,
-        danimeWorkId: danime.workId, error: args_dict.error };
+        danimeWorkId: danime.workId, error: args_dict.error
+    };
+    const webhookObj = {
+        "noWorkMatched": "webhookNoMatched", "noEpisodeMatched": "webhookNoMatched",
+        "noWorId": "webhookNoWorkId", "none": "webhookSuccess"
+    }
+    if (!Object.keys(webhookObj).some(key => postData.error.indexOf(key) != -1 && GLOBAL_storage[key] )) return;
 
     chrome.storage.sync.get({ postUrl: "" }, async storage => {
         const postUrl = storage.postUrl;
-        console.log(postUrl)
         await fetch(postUrl, { method: "POST", mode: "no-cors", body: JSON.stringify(postData) });;
     })
 
