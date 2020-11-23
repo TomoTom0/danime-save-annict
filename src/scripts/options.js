@@ -214,7 +214,6 @@ function addWebhookBlock(webhookNum) {
                 <label class="custom-control-label">送信する内容をデフォルトから変更する</label>
             </div>
         </div>
-        valueの中で変数を使用できます。(例: <code>I've seen {workTitle}-{episodeNumber}.</code>)
         <div class="form-group">
             <div class="col-lg-10 webhookContent">
                 <div class="div_webhook_0">

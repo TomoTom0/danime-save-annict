@@ -146,10 +146,13 @@
                             <div class="form-group">
                                 <div class="custom-control custom-webhook-checkbox">
                                     <input type="checkbox" class="custom-control-webhook-input check_webhookContentChanged">
-                                    <label class="custom-control-label">送信する内容をデフォルトから変更する</label>
+                                    <label class="custom-control-label">送信する内容(body)をデフォルトから変更する</label>
                                 </div>
                             </div>
-                            valueの中で変数を使用できます。(例: <code>I've seen {workTitle}-{episodeNumber}.</code>)
+                            <div style="margin: 10px;">
+                                valueの中で変数を使用できます。(例: <code>I've seen {workTitle}-{episodeNumber}.</code>)
+                                <br>また`JSON.stringify()`による変換は自動で行われます。
+                            </div>
                             <div class="form-group">
                                 <div class="col-lg-10 webhookContent">
                                     <div class="div_webhook_0">

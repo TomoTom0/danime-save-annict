@@ -59,6 +59,28 @@ dアニメストアの視聴結果をAnnictに送るChrome拡張です。[kakunp
 - ブラウザを閉じて視聴中断した後、再開した場合に重複送信されないようにした。
     - 最後まで動画を再生した場合を除き、最後に視聴した作品をCacheに保存することで判断する。
 
+#### 2020/11/24追記@v0.3.0.0
+- webhookのpost機能を搭載した。
+    - webhookの送信タイミングはAnnictへの送信タイミングと同時である。
+    - webhookの送信条件は以下から選択する (複数選択可能)。
+        1. 作品/エピソードが見つからなかった時
+        2. Annict DBにdアニメストアのWork IDが登録されていなかった時
+        3. エラーが起きなかった時 (上記以外の場合)
+    - 複数のwebhookに対して、個別に設定できる。たとえば、GASへは常に投稿しつつ、DiscordへはWork Idが見つからなかった時だけ投稿することができる。
+    - 投稿するwebhookのbodyは変更できる。その際、表の変数を利用できる。(デフォルトのbodyは表の変数をまとめたjsonを`JSON.stringify()`で変換した文字列。)
+
+| 変数          | 内容                   |
+| ------------- | ---------------------- |
+| workTitle     | 作品タイトル           |
+| episodeNumber | エピソード話数         |
+| episodeTitle  | エピソードタイトル     |
+| danimeWorkId  | dアニメストアのWork Id |
+| error         | エラー内容             |
+
+- Annictへの送信をオフにできるようにした。
+    - webhookのみを送信したい場合、拡張機能の実験をしたい場合に利用する。
+
+
 ## improvements about scripts
 
 - 各変数の宣言を`var`から`const/let`に置き換えて、より安全なscriptにした。
@@ -67,7 +89,7 @@ dアニメストアの視聴結果をAnnictに送るChrome拡張です。[kakunp
 - 漢数字をアラビア数字に変換する機能は[aok.blue.coocan.jp](http://aok.blue.coocan.jp/jscript/kan2arb.html)に掲載されていた関数を整えて利用した。
 - あまり意味のない変数を減らしてscriptをコンパクトにした。
 
-#### 2020/11/20追記@v0.2.0.0
+### 2020/11/20追記@v0.2.0.0
 - Annictから取得する話数は`number`および`sortNumber`を利用するようにした。
     - `number`が存在しないこともあるので、`episode_node.number || episode_node.sortNumber`で話数を取得する。
 
