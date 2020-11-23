@@ -4,16 +4,22 @@ const GLOBAL_sep = /\s|;|・|\(|（|～|‐|-|―|－|&|＆|#|＃/g;
 let dsaDialog;
 
 // check access token
-const inputObj = { "token": "", "sendingTime": 300, "postUrl": "", "webhookNoMatched": "", "webhookNoWorkId": "", "webhookSuccess": "" };
-let GLOBAL_storage = {};
-chrome.storage.sync.get(inputObj, storage => {
-    GLOBAL_storage = Object.keys(inputObj).reduce((obj, cur) => Object.assign(obj, { [cur]: storage[cur] }))
-})
-let GLOBAL_access_token = GLOBAL_storage.token;
-if (GLOBAL_access_token == "") showMessage("The access token of `Annict` does not exist.");
-if (GLOBAL_storage.sendingTime - 0 < 0) GLOBAL_storage.sendingTime = 300;
+const inputObj = { token: "", sendingTime: 300, webhookSettings: [] };
 
-window.onload = function () {
+let GLOBAL_storage = {};
+let GLOBAL_access_token = "";
+
+$(function(){
+    chrome.storage.sync.get(inputObj, items => {
+        GLOBAL_storage = items;
+        GLOBAL_access_token = GLOBAL_storage.token;
+        if (GLOBAL_access_token == "") showMessage("There is no access token of `Annict`.");
+        if (GLOBAL_storage.sendingTime - 0 < 0) GLOBAL_storage.sendingTime = 300;
+    })
+})
+
+
+window.onload = async function () {
 
     // メッセージ用のボックスをInjectする
     $("<style>", { type: 'text/css' })
@@ -23,28 +29,27 @@ window.onload = function () {
     dsaDialog = $(".dsa-dialog");
 
     let GLOBAL_notSent = true;
-
     const video = $("#video").get(0);
     video.addEventListener("loadstart", () => {
         GLOBAL_notSent = true;
-        setTimeout(() => { // in 5 min until video started
+        setTimeout(async () => { // in 5 min until video started
             const WatchingEpisode = JSON.stringify({
                 Title: $(".backInfoTxt1").text(),
                 EpisodeTitle: $(".backInfoTxt3")
             });
-            chrome.storage.sync.get({ lastWatched: JSON.stringify({}) }, item => {
-                if (item.lastWatched != WatchingEpisode) sendAnnict(); // 視聴中断->再開した場合は重複送信しないように
+            await chrome.storage.sync.get({ lastWatched: JSON.stringify({}) }, async item => {
+                if (item.lastWatched != WatchingEpisode) await sendAnnict(); // 視聴中断->再開した場合は重複送信しないように
             });
             chrome.storage.sync.set({ lastWatched: WatchingEpisode });
         }, GLOBAL_storage.sendingTime * 1000)
     });
-    video.addEventListener("ended", () => { // video ended
+    video.addEventListener("ended", async () => { // video ended
         const WatchingEpisode = JSON.stringify({
             Title: $(".backInfoTxt1").text(),
             EpisodeTitle: $(".backInfoTxt3")
         });
-        chrome.storage.sync.get({ lastWatched: JSON.stringify({}) }, item => {
-            if (item.lastWatched != WatchingEpisode) sendAnnict(); // 視聴中断->再開した場合は重複送信しないように
+        await chrome.storage.sync.get({ lastWatched: JSON.stringify({}) }, async item => {
+            if (item.lastWatched != WatchingEpisode) await sendAnnict(); // 視聴中断->再開した場合は重複送信しないように
         });
         chrome.storage.sync.set({ lastWatched: JSON.stringify({}) }); // 最後まで見たなら、同じエピソードでも連続記録OK
     });
@@ -54,8 +59,8 @@ window.onload = function () {
     });*/
 
     async function sendAnnict() {
+        console.log("Start Sending")
         if (!GLOBAL_access_token || !GLOBAL_notSent) return;
-        console.log("send Start");
 
         //const GLOBAL_site=["https://anime.dmkt-sp.jp/animestore/sc_d_pc?partId*", # for Amazon Prime
         //"https://www.amazon.co.jp/Amazon-Video/b?ie=UTF8&node="].filter(d=>location.href.indexOf(d)!=-1)
@@ -74,12 +79,12 @@ window.onload = function () {
         const result_nodes = await fetchWork(danime.splitedTitle[0])
             .then(d => d.map(dd => dd.node));
         if (result_nodes.length == 0) {
-            showMessage("No Hit Title. " + danime.workTitle);
-            await post2GAS({ danime: danime, error: "NoWorkMatched" });
+            showMessage("No Hit Title: " + danime.workTitle);
+            await post2webhook({ danime: danime, error: "noWorkMatched" });
             return;
         }
         let goodWorkNodes = await checkTitleWithWorkId(danime.workId, result_nodes);
-        const workIdIsFound = !!(goodWorkNodes.length != 0);
+        const workIdIsFound = (goodWorkNodes.length != 0);
         if (!workIdIsFound) {
             const checkTitleLengths = result_nodes.map(node => checkTitle([node.title, danime.workTitle], "length")) // node.Title in danime.workTitle
             const checkTitleLength_max = checkTitleLengths.reduce((acc, cur) => Math.max(acc, cur));
@@ -93,7 +98,7 @@ window.onload = function () {
         const episodes_numberAndCheck = combinedEpisodeNode.map(episode_node =>
             [workIdIsFound,
                 checkTitle([danime.episodeTitle, episode_node.title], "every"),
-                (episode_node.number || episode_node.sortNumber) == danime.number, episode_node])
+                (episode_node.number || episode_node.sortNumber) == danime.number, episode_node]);
         const episodes_judges = episodes_numberAndCheck.map(d =>
             [d[0] && d[1] && d[2], // workId is found and episode title & number corresponds
             d[0] && d[1], // workId is found and episode title corresponds
@@ -104,15 +109,17 @@ window.onload = function () {
         const valid_check_methods = [...Array(judge_kinds).keys()].filter(num => episodes_judges.filter(d => d[num]).length > 0);
         if (valid_check_methods.length > 0) {
             const episode_node = episodes_judges.filter(d => d[valid_check_methods[0]])[0][judge_kinds];
-            const status = await postRecord(episode_node.annictId);
-            showMessage(`${danime.workTitle} ${danime.episodeNumber} Annict sending ${status ? 'successed' : 'failed'}.`);
+            if (GLOBAL_storage.annictSend) {
+                const status = await postRecord(episode_node.annictId);
+                showMessage(`${danime.workTitle} ${danime.episodeNumber} Annict sending ${status ? 'successed' : 'failed'}.`);
+            }
             sendResult = true;
         }
         if (!sendResult) showMessage(`${danime.workTitle} ${danime.episodeNumber} Annict sendiing failed.`);
-        const error_messages = [[!sendResult, "NoEpisodeMatched"], [!workIdIsFound, "NoWorkId"]].filter(d => d[0]);
+        const error_messages = [[!sendResult, "noEpisodeMatched"], [!workIdIsFound, "noWorkId"]].filter(d => d[0]);
         if (error_messages.length > 0) { // error or workId未登録の場合に指定したURLにwebhookを送信
-            await post2GAS({ danime: danime, error: error_messages.map(d => d[1]).join(" ") });
-        } else await post2GAS({ danime: danime, error: "none" });
+            await post2webhook({ danime: danime, error: error_messages.map(d => d[1]).join(" ") });
+        } else await post2webhook({ danime: danime, error: "none" });
 
         GLOBAL_notSent = false;
     }
@@ -128,7 +135,6 @@ window.onload = function () {
 }
 
 //------------------ functions -------------------
-
 
 function remakeString(input_str, mode = "title") {
     const delete_array = ["「", "」", "『", "』", "｢", "｣"];
@@ -167,9 +173,9 @@ async function checkTitleWithWorkId(danime_workId, work_nodes) {
         const annictId = work_node.annictId
 
         const db_url = `https://api.annict.com/db/works/${annictId}/programs`;
-        const db_reader = await fetch(db_url).then(d => d.body)
-            .then(d => d.getReader()).then(reader => reader.read());
-        const db_html = new TextDecoder("utf-8").decode(db_reader.value);
+        const db_html = await fetch(db_url).then(d => d.body)
+            .then(d => d.getReader()).then(reader => reader.read())
+            .then(db_reader=>new TextDecoder("utf-8").decode(db_reader.value));
 
         const danime_info = $("tr", db_html).toArray()
             .map(el => [$("td:eq(1)", el).text(), $("td:eq(5)", el).text()])
@@ -181,34 +187,48 @@ async function checkTitleWithWorkId(danime_workId, work_nodes) {
     return good_nodes;
 }
 
-
 async function postRecord(episodeId) {
     // AnnictへのPOST
     const url = `https://api.annict.com/v1/me/records?episode_id=${episodeId}&access_token=${GLOBAL_access_token}`;
     return await fetch(url, { method: "POST" }).then(res => res.status);
 }
 
-async function post2GAS(args_dict) {
-
+async function post2webhook(args_dict) {
+    console.log("webhook")
     const danime = args_dict.danime;
-    const postData = {
+    const origPostData = {
         workTitle: danime.workTitle, episodeNumber: danime.episodeNumber,
         episodeTitle: danime.episodeTitle,
         danimeWorkId: danime.workId, error: args_dict.error
     };
-    const webhookObj = {
+    const webhookMatchingObj = {
         "noWorkMatched": "webhookNoMatched", "noEpisodeMatched": "webhookNoMatched",
-        "noWorId": "webhookNoWorkId", "none": "webhookSuccess"
+        "noWorkId": "webhookNoWorkId", "none": "webhookSuccess"
     }
-    if (!Object.keys(webhookObj).some(key => postData.error.indexOf(key) != -1 && GLOBAL_storage[key] )) return;
-
-    chrome.storage.sync.get({ postUrl: "" }, async storage => {
-        const postUrl = storage.postUrl;
-        await fetch(postUrl, { method: "POST", mode: "no-cors", body: JSON.stringify(postData) });;
-    })
-
-
+    const headers = {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+    }
+    for (const webhookSetting of GLOBAL_storage.webhookSettings) {
+        let postData = {};
+        if (webhookSetting.webhookContentChanged) {
+            const postJson = webhookSetting.webhookContent;
+            postData = Object.entries(postJson).reduce((obj, kv) => {
+                const val = kv[1].replace(/\{[^\{]+\}/g, s_in => {
+                    s=s_in.slice(1,-1);
+                    if (Object.keys(origPostData).indexOf(s) != -1) return origPostData[s];
+                    else return s;
+                });
+                return Object.assign(obj, { [kv[0]]: val });
+            }, {});
+        } else postData = origPostData;
+        if (!Object.entries(webhookMatchingObj).some(kv => origPostData.error.indexOf(kv[0]) != -1 && webhookSetting[kv[1]])) continue;
+        let options={ method: "POST", headers:headers, body: JSON.stringify(postData) };
+        if (webhookSetting.postUrl.indexOf("://script.google.com/macros/")!=-1) options.mode="no-cors";
+        const res=await fetch(webhookSetting.postUrl, options);
+    }
 }
+
 
 async function fetchWork(title) {
     const query = `
@@ -302,75 +322,5 @@ function toArb(input_kanji) {
     }
     return output_includeMag + output_num; // return output
 };
-
-//----------------- not used functions ---------------
-// not modified
-
-function getWorkId(titleText, callback) {
-    var myObject = {
-        "filter_title": titleText,
-        "per_page": 1,
-        "fields": "id,title",
-        "filter_status": "watching"
-    };
-
-    var url = "https://api.annict.com/v1/me/works?access_token=" + GLOBAL_access_token;
-
-    $.getJSON(
-        url,
-        $.param(myObject, true),
-        function (data, status) {
-            if (status == "success") {
-                var count = data["works"].length
-                if (count > 0) {
-                    var id = data["works"][0]["id"];
-                    callback(id);
-                }
-                else {
-                    showMessage("`" + titleText + "` did not exist.")
-                }
-            }
-            else {
-                showMessage("Get Work data error.")
-            }
-        }
-    );
-}
-
-function getEpisodeId(episodeText, workId, callback) {
-
-    var myObject = {
-        "filter_work_id": workId,
-        "sort_id": "asc"
-    };
-
-    var url = "https://api.annict.com/v1/episodes?access_token=" + GLOBAL_access_token;
-
-    $.getJSON(
-        url,
-        $.param(myObject, true),
-        function (data, status) {
-            if (status == "success") {
-                var episodes = data["episodes"]
-                var isCall = false
-                for (var i = 0; i < episodes.length; i++) {
-                    var episode = episodes[i]
-                    if (episode["title"] == episodeText) {
-                        callback(episode["id"])
-                        isCall = true
-                        break
-                    }
-                }
-
-                if (isCall == false) {
-                    showMessage("`" + episodeText + "` did not exist.")
-                }
-            }
-            else {
-                showMessage("Get episode data error.")
-            }
-        }
-    );
-}
 
 

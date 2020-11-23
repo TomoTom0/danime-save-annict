@@ -9,7 +9,8 @@
     <title>設定</title>
 
     <link rel="stylesheet" type="text/css" href="../styles/bootstrap.min.css">
-    <script src="../scripts/options.js"></script>
+    <link rel="stylesheet" type="text/css" href="../css/option.css">
+
     <style>
         .license {
             font-family: sans-serif;
@@ -26,8 +27,7 @@
 <body>
 
     <div class="container">
-        <!-- Forms
-  ================================================== -->
+        <!-- Forms ================================================== -->
         <div class="bs-docs-section">
             <div class="row">
                 <div class="col-lg-12">
@@ -43,7 +43,7 @@
                     <div class="well bs-component">
                         <form class="form-horizontal">
                             <div class="form-group">
-                                <label for="input_token" class="col-lg-2 control-label">アクセストークン</label>
+                                <label for="input_token" class="col-lg-2 control-label">個人用アクセストークン</label>
                                 <div class="col-lg-10">
                                     <input type="text" class="form-control" id="input_token" placeholder="">
                                 </div>
@@ -60,8 +60,14 @@
                         <form class="form-horizontal">
                             <div class="form-group">
                                 <div class="col-lg-10">
-                                    <label class="custom-control-label" for="input_sendingTime">Annictへの送信タイミング: 再生開始からの経過時間(秒)</label>
+                                    <label class="custom-control-label">送信タイミング: 再生開始からの経過時間(秒)</label>
                                     <input type="number" class="form-control" id="input_sendingTime" placeholder="300">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <div class="custom-control custom-checkbox" id="check_annictSend">
+                                    <input type="checkbox" class="custom-control-input" checked>
+                                    <label class="custom-control-label">Annictに送信する</label>
                                 </div>
                             </div>
                             <div class="form-group">
@@ -71,34 +77,97 @@
                             </div>
                         </form>
                     </div>
-                    <div class="well bs-component">
+                    <h2 id="forms">Webhook</h2>
+                    <button type="button" class="btn_webhookBlockAdd btn btn-primary">Webhook設定を追加</button>
+                    <div class="well bs-component" id="webhook_0">
                         <form class="form-horizontal">
                             <div class="form-group">
-                                <label for="message" class="col-lg-2 control-label">Webhook Post URL</label>
+                                <label class="col-lg-2 control-label">Webhook Post URL</label>
                                 <div class="col-lg-10">
-                                    <input type="text" class="form-control" id="input_postUrl" placeholder="">
+                                    <input type="text" class="form-control input_postUrl" placeholder="">
                                 </div>
                             </div>
+
                             <div class="form-group">
-                                <div class="custom-control custom-checkbox" id="check_webhookNoMatched">
-                                    <input type="checkbox" class="custom-control-input" checked>
-                                    <label class="custom-control-label" for="check_WebhookNoMatched">作品/エピソードが見つからなかった時</label>
+                                <div class="custom-control custom-checkbox">
+                                    <input type="checkbox" class="custom-control-webhook-input check_webhookNoMatched" checked>
+                                    <label class="custom-control-label">作品/エピソードが見つからなかった時</label>
                                 </div>
-                                <div class="custom-control custom-checkbox" id="check_webhookNoWorkId">
-                                    <input type="checkbox" class="custom-control-input">
-                                    <label class="custom-control-label" for="check_webhookNoWorkId">Annict DBにdアニメストアのWork IDが登録されていなかった時</label>
+                                <div class="custom-control custom-webhook-checkbox">
+                                    <input type="checkbox" class="custom-control-webhook-input check_webhookNoWorkId">
+                                    <label class="custom-control-label">Annict DBにdアニメストアのWork IDが登録されていなかった時</label>
                                 </div>
-                                <div class="custom-control custom-checkbox" id="check_webhookSuccess">
-                                    <input type="checkbox" class="custom-control-input">
-                                    <label class="custom-control-label" for="check_webhookSuccees">エラーが起きなかった時 (上記以外の場合)</label>
+                                <div class="custom-control custom-webhook-checkbox">
+                                    <input type="checkbox" class="custom-control-webhook-input check_webhookSuccess">
+                                    <label class="custom-control-label">エラーが起きなかった時 (上記以外の場合)</label>
                                 </div>
                             </div>
                             <div class="form-group">
                                 <div class="col-lg-10 col-lg-offset-2">
-                                    <button id="btn_postUrl" type="button" class="saveButton btn btn-primary">保存</button>
+                                    <button type="button" class="btn_postUrl btn_webhookSave btn btn-primary">保存</button>
                                 </div>
                             </div>
                         </form>
+                        <hr>
+                        <h3>Webhookの送信内容</h3>
+                        デフォルトでは、以下の変数からなるjsonを<code>JSON.stringify()</code>で変換した文字列が送信されます。
+                        <table class="part" data-startline="161" data-endline="167">
+                            <caption>使用可能な変数</caption>
+                            <thead>
+                            <tr>
+                            <th><span data-position="4178" data-size="3">変数</span></th>
+                            <th><span data-position="4194" data-size="2">内容</span></th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            <tr>
+                            <td><span data-position="4262" data-size="9">workTitle</span></td>
+                            <td><span data-position="4278" data-size="6">作品タイトル</span></td>
+                            </tr>
+                            <tr>
+                            <td><span data-position="4299" data-size="13">episodeNumber</span></td>
+                            <td><span data-position="4315" data-size="7">エピソード話数</span></td>
+                            </tr>
+                            <tr>
+                            <td><span data-position="4335" data-size="12">episodeTitle</span></td>
+                            <td><span data-position="4351" data-size="9">エピソードタイトル</span></td>
+                            </tr>
+                            <tr>
+                            <td><span data-position="4369" data-size="12">danimeWorkId</span></td>
+                            <td><span data-position="4385" data-size="15">dアニメストアのWork Id</span></td>
+                            </tr>
+                            <tr>
+                            <td><span data-position="4405" data-size="5">error</span></td>
+                            <td><span data-position="4421" data-size="5">エラー内容</span></td>
+                            </tr>
+                            </tbody>
+                        </table>
+                        <form class="form-horizontal">
+                            <div class="form-group">
+                                <div class="custom-control custom-webhook-checkbox">
+                                    <input type="checkbox" class="custom-control-webhook-input check_webhookContentChanged">
+                                    <label class="custom-control-label">送信する内容をデフォルトから変更する</label>
+                                </div>
+                            </div>
+                            valueの中で変数を使用できます。(例: <code>I've seen {workTitle}-{episodeNumber}.</code>)
+                            <div class="form-group">
+                                <div class="col-lg-10 webhookContent">
+                                    <div class="div_webhook_0">
+                                        <input type="text" class="webhookKey form-control" placeholder="key" style="width: 15%; display: inline;">
+                                        <input type="text" class="webhookValue form-control" placeholder="value" style="width: 60%; display: inline;">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <div class="col-lg-10 col-lg-offset-2">
+                                    <button type="button" class="btn_webhookContentAdd btn btn-primary">追加</button>
+                                    <button type="button" class="btn_webhookSave btn btn-primary">保存</button>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                    <div id="extraWebhook">
                     </div>
                 </div>
             </div>
@@ -111,6 +180,8 @@
 
     <script src="../js/jquery-3.5.1.min.js"></script>
     <script src="../js/bootstrap.min.js"></script>
+    <script src="../scripts/options.js"></script>
+
 
 </body>
 
