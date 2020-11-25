@@ -3,13 +3,14 @@
 You can install from [Chrome Store](https://chrome.google.com/webstore/detail/danime-save-annict-2/kclfdffcicdnmfjaiikclpoldoojfnpj?hl=ja)
 
 ## Abstaract
-This chrome extension sends your watching record in [d-anime store](https://anime.dmkt-sp.jp/animestore/tp_pc) to [Annict](https://annict.jp/), and is forked from [kakunpc's Repository](https://github.com/kakunpc/danime-save-annict).
-
-----
-
+This chrome extension sends your watching record in [d-anime store](https://anime.dmkt-sp.jp/animestore/tp_pc) to [Annict](https://annict.jp/), and is forked from [kakunpc's Repository](https://github.com/kakunpc/danime-save-annict).  
 dアニメストアの視聴結果をAnnictに送るChrome拡張です。[kakunpcさんのRepository](https://github.com/kakunpc/danime-save-annict)からforkした改良版です。非常に多くの作品へ対応できるようになりました。
 
-**詳細や使い方はDocumentをご確認ください。**-> [Document on HackMD](https://hackmd.io/@ystl/Hy1h_mqcv/%2FyPgVV_bDS92mEUJJvWfk7g)
+**If you wanto to know details or how to use, please access to [Document on HackMD](https://hackmd.io/@ystl/Hy1h_mqcv/%2FyPgVV_bDS92mEUJJvWfk7g)**  
+**詳細や使い方はDocumentをご確認ください。: [Document on HackMD](https://hackmd.io/@ystl/Hy1h_mqcv/%2FyPgVV_bDS92mEUJJvWfk7g)**
+
+
+----
 
 - **Get started and lets's use!**: [Quick Tutorial](https://hackmd.io/@ystl/Hy1h_mqcv/%2FQRGRL9xxT7G9iswfGnmGiQ)
 - **What has been improved?**: [Improvements](https://hackmd.io/@ystl/Hy1h_mqcv/%2FCz8m07FlQA-l9ni1XnS0PA)
