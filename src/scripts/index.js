@@ -180,9 +180,9 @@ async function checkTitleWithWorkId(danime_workId, work_nodes) {
         const danime_info = $("tr", db_html).toArray()
             .map(el => [$("td:eq(1)", el).text(), $("td:eq(5)", el).text()])
             .filter(d => d[0].indexOf("241") != -1)
-            .map(d => d.map(dd => dd.match(/\d+/)[0]))[0];
-        if (!danime_info) continue;
-        if (danime_workId == danime_info[1]) good_nodes.push(work_node);
+            .map(d => d[1].match(/\d+/) );
+        if (danime_info.length>0) continue;
+        if (danime_info.indexOf(danime_workId) != -1) good_nodes.push(work_node);
     }
     return good_nodes;
 }
@@ -194,7 +194,7 @@ async function postRecord(episodeId) {
 }
 
 async function post2webhook(args_dict) {
-    console.log("webhook")
+    console.log("webhook");
     const danime = args_dict.danime;
     const origPostData = {
         workTitle: danime.workTitle, episodeNumber: danime.episodeNumber,
