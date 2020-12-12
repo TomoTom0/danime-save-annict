@@ -9,7 +9,22 @@ const inputObj = { token: "", sendingTime: 300, webhookSettings: [] };
 let GLOBAL_storage = {};
 let GLOBAL_access_token = "";
 
+function showMessage(message, dialog=dsaDialog) {
+    dialog.text(message);
+    dialog.hide().fadeIn('slow', () =>
+        setTimeout(() => {
+            dialog.fadeOut('slow')
+        }, 5000)
+    )
+}
+
 $(function(){
+    $("<style>", { type: 'text/css' })
+    .append(".dsa-dialog { position: fixed;  bottom: 60px;  right: 10px; border: 1px solid #888888;  padding: 2pt;  background-color: #ffffff;  filter: alpha(opacity=85);  -moz-opacity: 0.85;  -khtml-opacity: 0.85;  opacity: 0.85;      text-shadow: 0 -1px 1px #FFF, -1px 0 1px #FFF, 1px 0 1px #aaa;  -webkit-box-shadow: 1px 1px 2px #eeeeee;  -moz-box-shadow: 1px 1px 2px #eeeeee;  -webkit-border-radius: 3px;  -moz-border-radius: 3px; display: none;}")
+    .appendTo("head");
+    $("<div>").addClass("dsa-dialog").text('Message').appendTo("body");
+    dsaDialog = $(".dsa-dialog");
+
     chrome.storage.sync.get(inputObj, items => {
         GLOBAL_storage = items;
         GLOBAL_access_token = GLOBAL_storage.token;
@@ -22,12 +37,6 @@ $(function(){
 window.onload = async function () {
 
     // メッセージ用のボックスをInjectする
-    $("<style>", { type: 'text/css' })
-        .append(".dsa-dialog { position: fixed;  bottom: 60px;  right: 10px; border: 1px solid #888888;  padding: 2pt;  background-color: #ffffff;  filter: alpha(opacity=85);  -moz-opacity: 0.85;  -khtml-opacity: 0.85;  opacity: 0.85;      text-shadow: 0 -1px 1px #FFF, -1px 0 1px #FFF, 1px 0 1px #aaa;  -webkit-box-shadow: 1px 1px 2px #eeeeee;  -moz-box-shadow: 1px 1px 2px #eeeeee;  -webkit-border-radius: 3px;  -moz-border-radius: 3px; display: none;}")
-        .appendTo("head");
-    $("<div>").addClass("dsa-dialog").text('Message').appendTo("body");
-    dsaDialog = $(".dsa-dialog");
-
     let GLOBAL_notSent = true;
     const video = $("#video").get(0);
     video.addEventListener("loadstart", () => {
@@ -59,7 +68,7 @@ window.onload = async function () {
     });*/
 
     async function sendAnnict() {
-        console.log("Start Sending")
+        console.log("Start Sending");
         if (!GLOBAL_access_token || !GLOBAL_notSent) return;
 
         //const GLOBAL_site=["https://anime.dmkt-sp.jp/animestore/sc_d_pc?partId*", # for Amazon Prime
@@ -124,17 +133,12 @@ window.onload = async function () {
         GLOBAL_notSent = false;
     }
 
-    function showMessage(message) {
-        dsaDialog.text(message);
-        dsaDialog.hide().fadeIn('slow', () =>
-            setTimeout(() => {
-                dsaDialog.fadeOut('slow')
-            }, 5000)
-        )
-    }
+
 }
 
 //------------------ functions -------------------
+
+
 
 function remakeString(input_str, mode = "title") {
     const delete_array = ["「", "」", "『", "』", "｢", "｣"];
@@ -209,7 +213,8 @@ async function post2webhook(args_dict) {
         'Accept': 'application/json',
         'Content-Type': 'application/json'
     }
-    for (const webhookSetting of GLOBAL_storage.webhookSettings) {
+    const webhookSettings = JSON.parse(GLOBAL_storage.webhookSettings);
+    for (const webhookSetting of Object.values(webhookSettings)) {
         let postData = {};
         if (webhookSetting.webhookContentChanged) {
             const postJson = webhookSetting.webhookContent;
@@ -222,10 +227,12 @@ async function post2webhook(args_dict) {
                 return Object.assign(obj, { [kv[0]]: val });
             }, {});
         } else postData = origPostData;
+        console.log(webhookSetting)
         if (!Object.entries(webhookMatchingObj).some(kv => origPostData.error.indexOf(kv[0]) != -1 && webhookSetting[kv[1]])) continue;
         let options={ method: "POST", headers:headers, body: JSON.stringify(postData) };
         if (webhookSetting.postUrl.indexOf("://script.google.com/macros/")!=-1) options.mode="no-cors";
         const res=await fetch(webhookSetting.postUrl, options);
+        console.log(postData, res);
     }
 }
 

@@ -50,8 +50,11 @@ $(function () {
         const webhookSettings = JSON.parse(items.webhookSettings);
         let firstBlock=true;
         Object.keys(webhookSettings).forEach(webhookNum => {
-            if (firstBlock) firstBlock=!firstBlock;
-            else addWebhookBlock(webhookNum);
+            if (firstBlock) {
+                const firstWebhook=$("#webhook_0");
+                firstWebhook.attr("id", `webhook_${webhookNum}`);
+                firstBlock=!firstBlock;
+            } else addWebhookBlock(webhookNum);
             const webhook_now = $(`#webhook_${webhookNum}`);
             const webhookArea = $(".webhookContent", webhook_now);
             for (const key of webhookKeys.check) {
@@ -78,12 +81,13 @@ $(function () {
                     div_webhook.append(inputKey).append(inputValue).append(deleteButton);
                     webhookArea.append(div_webhook);
                 } else {
-                    const div_webhook = $(".div_webhook_0", webhookArea);
+                    const div_webhook = $(`.div_webhook_0`, webhookArea);
                     const inputKey = $(".webhookKey", div_webhook);
                     const inputValue = $(".webhookValue", div_webhook);
                     //console.log(div_webhook, inputKey, inputValue)
                     inputKey.val(kv[0]);
                     inputValue.val(kv[1]);
+                    div_webhook.attr("class", `.div_webhook_${webhookNum}`)
                 }
             })
         })
@@ -94,7 +98,7 @@ $(function () {
 document.addEventListener("click", function (e) {
     const webhook_now = $(e.target).parents("[id^=webhook_]");
     const clicked_class = $(e.target).attr("class");
-    console.log(e)
+    //console.log(e)
     if (!clicked_class) return;
     //----------- not webhook ------------
     //get value
