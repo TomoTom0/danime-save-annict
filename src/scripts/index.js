@@ -30,6 +30,7 @@ $(function(){
         GLOBAL_access_token = GLOBAL_storage.token;
         if (GLOBAL_access_token == "") showMessage("There is no access token of `Annict`.");
         if (GLOBAL_storage.sendingTime - 0 < 0) GLOBAL_storage.sendingTime = 300;
+        if (Object.keys(GLOBAL_storage).indexOf("annictSend")==-1) GLOBAL_storage.annictSend = true;
     })
 })
 
@@ -118,8 +119,10 @@ window.onload = async function () {
         const valid_check_methods = [...Array(judge_kinds).keys()].filter(num => episodes_judges.filter(d => d[num]).length > 0);
         if (valid_check_methods.length > 0) {
             const episode_node = episodes_judges.filter(d => d[valid_check_methods[0]])[0][judge_kinds];
+            console.log(GLOBAL_storage.annictSend)
             if (GLOBAL_storage.annictSend) {
                 const status = await postRecord(episode_node.annictId);
+                console.log(status);
                 showMessage(`${danime.workTitle} ${danime.episodeNumber} Annict sending ${status ? 'successed' : 'failed'}.`);
             }
             sendResult = true;
