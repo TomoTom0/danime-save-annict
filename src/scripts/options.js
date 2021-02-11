@@ -29,11 +29,6 @@ link.type = "text/css";
 link.rel = "stylesheet";
 (document.head || document.documentElement).appendChild(link);
 
-//let webhookNumber = 1;
-//chrome.storage.sync.get({ webhookSettings: webhookDefaultString }, items => {
-//    webhookSettings = items.webhookSettings;
-    //webhookNumber = webhookSettings.length;
-//});
 
 $(function () {
     //------ not webhook ---------
@@ -47,7 +42,7 @@ $(function () {
     //-------------- webhook ---------------
     // set value
     chrome.storage.sync.get({ webhookSettings: webhookDefaultString }, items => {
-        const webhookSettings = JSON.parse(items.webhookSettings);
+        const webhookSettings=checkWebhookSettings(items.webhookSettings);
         let firstBlock=true;
         Object.keys(webhookSettings).forEach(webhookNum => {
             if (firstBlock) {
@@ -67,7 +62,7 @@ $(function () {
                 $(`.input_${key}`, webhook_now).val(val);
             }
             const webhookContent = webhookSettings[webhookNum].webhookContent;
-            console.log(webhookContent)
+            //console.log(webhookContent);
             Object.entries(webhookContent).forEach((kv, ind) => {
                 //console.log(kv, ind)
                 if (ind > 0) {
@@ -115,7 +110,7 @@ document.addEventListener("click", function (e) {
         }  // add or delete block
         else if (clicked_class.indexOf("btn_webhookBlockAdd") != -1) {
             chrome.storage.sync.get({ webhookSettings: webhookDefaultString }, items => {
-                let webhookSettings = JSON.parse(items.webhookSettings);
+                let webhookSettings = checkWebhookSettings(items.webhookSettings);
                 const webhookNewKey=Date.now();
                 webhookSettings[webhookNewKey]=webhookDefaultSetting;
                 chrome.storage.sync.set({ webhookSettings: JSON.stringify(webhookSettings) });
@@ -129,7 +124,8 @@ document.addEventListener("click", function (e) {
             deleted_block.remove();
             $(e.target).remove();
             chrome.storage.sync.get({ webhookSettings: webhookDefaultString }, items => {
-                let webhookSettings = JSON.parse(items.webhookSettings);
+                let webhookSettings = checkWebhookSettings(items.webhookSettings);
+
                 delete webhookSettings[webhookNum];
                 chrome.storage.sync.set({ webhookSettings: JSON.stringify(webhookSettings) });
             });
@@ -161,9 +157,7 @@ document.addEventListener("click", function (e) {
             const webhookContent = [...Array(Keys.length).keys()].reduce((obj, ind) => Object.assign(obj, { [Keys[ind]]: Values[ind] }), {});
             const inputObjs = webhookKeys.input.reduce((obj, acc) => Object.assign(obj, { [acc]: $(`.input_${acc}`, webhook_now).val() }), {});
             chrome.storage.sync.get({ webhookSettings: webhookDefaultString }, items => {
-                let webhookSettings={};
-                try { webhookSettings = JSON.parse(items.webhookSettings);}
-                catch {webhookSettings = JSON.parse(webhookDefaultString);}
+                let webhookSettings = checkWebhookSettings(items.webhookSettings);
                 webhookSettings[webhookNum].webhookContent = webhookContent;
                 Object.entries(inputObjs).forEach(kv => webhookSettings[webhookNum][kv[0]] = kv[1]);
                 chrome.storage.sync.set({ webhookSettings: JSON.stringify(webhookSettings) });
@@ -174,7 +168,7 @@ document.addEventListener("click", function (e) {
             const checkKey = clicked_class.match(/(?<=check_)webhook\S+/)[0];
             const checkVal = $(e.target).prop("checked");
             chrome.storage.sync.get({ webhookSettings: webhookDefaultString }, items => {
-                let webhookSettings = JSON.parse(items.webhookSettings);
+                let webhookSettings = checkWebhookSettings(items.webhookSettings);
                 webhookSettings[webhookNum][checkKey] = checkVal;
                 chrome.storage.sync.set({ webhookSettings: JSON.stringify(webhookSettings) });
             });
@@ -244,4 +238,16 @@ function addWebhookBlock(webhookNum) {
 
     const optionMenu = $("#extraWebhook");
     optionMenu.append(deleteButton).append($(webhook_blockHtml));
+}
+
+function checkWebhookSettings(webhookSettingsTmp){
+    let webhookSettings={};
+    try { webhookSettings = JSON.parse(webhookSettingsTmp);}
+    catch (e) {
+        try {
+            webhookSettings = [...Array(webhookSettingsTmp.length).keys()]
+            .reduce((acc,cur)=>Object.assign(acc, {[cur]:webhookSettingsTmp[cur]}, {}));
+        } catch (e) {webhookSettings = JSON.parse(webhookDefaultString);}
+    }
+    return webhookSettings;
 }

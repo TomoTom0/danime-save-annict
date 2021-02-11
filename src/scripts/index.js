@@ -107,7 +107,7 @@ window.onload = async function () {
             const checkTitleLength_max = checkTitleLengths.reduce((acc, cur) => Math.max(acc, cur));
             goodWorkNodes = result_nodes.filter((_, ind) => checkTitleLengths[ind] == checkTitleLength_max);
         }
-        console.log(goodWorkNodes);
+        console.log("Work Candidates:\n", goodWorkNodes);
 
         let combinedEpisodeNode = [];
         for (const workNode of goodWorkNodes) combinedEpisodeNode.push(...workNode.episodes.edges.map(d => d.node));
@@ -126,11 +126,12 @@ window.onload = async function () {
         const valid_check_methods = [...Array(judge_kinds).keys()].filter(num => episodes_judges.filter(d => d[num]).length > 0);
         if (valid_check_methods.length > 0) {
             const episode_node = episodes_judges.filter(d => d[valid_check_methods[0]])[0][judge_kinds];
-            console.log(GLOBAL_storage.annictSend)
+            //console.log(GLOBAL_storage.annictSend);
             if (GLOBAL_storage.annictSend) {
                 const status = await postRecord(episode_node.annictId);
-                console.log(status);
-                showMessage(`${danime.workTitle} ${danime.episodeNumber} Annict sending ${status ? 'successed' : 'failed'}.`);
+                const result_message=`${danime.workTitle} ${danime.episodeNumber} Annict sending ${status ? 'successed' : 'failed'}.`;
+                console.log(result_message);
+                showMessage(result_message);
             }
             sendResult = true;
         }
@@ -142,7 +143,6 @@ window.onload = async function () {
 
         GLOBAL_notSent = false;
     }
-
 
 }
 
@@ -208,7 +208,7 @@ async function postRecord(episodeId) {
 }
 
 async function post2webhook(args_dict) {
-    console.log("webhook");
+    console.log("About Webhook");
     const danime = args_dict.danime;
     const origPostData = {
         workTitle: danime.workTitle, episodeNumber: danime.episodeNumber,
@@ -223,11 +223,7 @@ async function post2webhook(args_dict) {
         'Accept': 'application/json',
         'Content-Type': 'application/json'
     }
-    let webhookSettings={};
-    console.log(GLOBAL_storage)
-
-    try { webhookSettings = JSON.parse(GLOBAL_storage.webhookSettings);}
-    catch {webhookSettings = JSON.parse(webhookDefaultString);}
+    let webhookSettings=checkWebhookSettings(GLOBAL_storage.webhookSettings);
 
     for (const webhookSetting of Object.values(webhookSettings)) {
         let postData = {};
@@ -242,7 +238,7 @@ async function post2webhook(args_dict) {
                 return Object.assign(obj, { [kv[0]]: val });
             }, {});
         } else postData = origPostData;
-        console.log(webhookSetting)
+        //console.log(webhookSetting);
         if (!Object.entries(webhookMatchingObj).some(kv => origPostData.error.indexOf(kv[0]) != -1 && webhookSetting[kv[1]])) continue;
         let options={ method: "POST", headers:headers, body: JSON.stringify(postData) };
         if (webhookSetting.postUrl.indexOf("://script.google.com/macros/")!=-1) options.mode="no-cors";
@@ -291,6 +287,17 @@ async function fetchWork(title) {
         .then(jsoned => jsoned.errors ? [] : jsoned.data.searchWorks.edges);
 }
 
+function checkWebhookSettings(webhookSettingsTmp){
+    let webhookSettings={};
+    try { webhookSettings = JSON.parse(webhookSettingsTmp);}
+    catch (e) {
+        try {
+            webhookSettings = [...Array(webhookSettingsTmp.length).keys()]
+            .reduce((acc,cur)=>Object.assign(acc, {[cur]:webhookSettingsTmp[cur]}, {}));
+        } catch (e) {webhookSettings = JSON.parse(webhookDefaultString);}
+    }
+    return webhookSettings;
+}
 
 //----------------Kanji2Arab: modified from http://aok.blue.coocan.jp/jscript/kan2arb.html---------------
 
