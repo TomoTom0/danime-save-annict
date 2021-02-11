@@ -3,8 +3,15 @@
 const GLOBAL_sep = /\s|;|・|\(|（|～|‐|-|―|－|&|＆|#|＃/g;
 let dsaDialog;
 
+// webhook default settings
+const webhookDefaultSetting = {
+    postUrl: "", webhookNoMatched: true,
+    webhookNoWorkId: false, webhookSuccess: false, annictSend: true, webhookContentChanged: false, webhookContent: {}
+};
+const webhookDefaultString = JSON.stringify({[Date.now()]: webhookDefaultSetting});
+
 // check access token
-const inputObj = { token: "", sendingTime: 300, webhookSettings: [] };
+const inputObj = { token: "", sendingTime: 300, webhookSettings: webhookDefaultString };
 
 let GLOBAL_storage = {};
 let GLOBAL_access_token = "";
@@ -216,7 +223,12 @@ async function post2webhook(args_dict) {
         'Accept': 'application/json',
         'Content-Type': 'application/json'
     }
-    const webhookSettings = JSON.parse(GLOBAL_storage.webhookSettings);
+    let webhookSettings={};
+    console.log(GLOBAL_storage)
+
+    try { webhookSettings = JSON.parse(GLOBAL_storage.webhookSettings);}
+    catch {webhookSettings = JSON.parse(webhookDefaultString);}
+
     for (const webhookSetting of Object.values(webhookSettings)) {
         let postData = {};
         if (webhookSetting.webhookContentChanged) {

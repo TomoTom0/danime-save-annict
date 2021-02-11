@@ -161,7 +161,9 @@ document.addEventListener("click", function (e) {
             const webhookContent = [...Array(Keys.length).keys()].reduce((obj, ind) => Object.assign(obj, { [Keys[ind]]: Values[ind] }), {});
             const inputObjs = webhookKeys.input.reduce((obj, acc) => Object.assign(obj, { [acc]: $(`.input_${acc}`, webhook_now).val() }), {});
             chrome.storage.sync.get({ webhookSettings: webhookDefaultString }, items => {
-                let webhookSettings = JSON.parse(items.webhookSettings);
+                let webhookSettings={};
+                try { webhookSettings = JSON.parse(items.webhookSettings);}
+                catch {webhookSettings = JSON.parse(webhookDefaultString);}
                 webhookSettings[webhookNum].webhookContent = webhookContent;
                 Object.entries(inputObjs).forEach(kv => webhookSettings[webhookNum][kv[0]] = kv[1]);
                 chrome.storage.sync.set({ webhookSettings: JSON.stringify(webhookSettings) });
