@@ -231,10 +231,9 @@ async function checkTitleWithWorkId(danime_workId, work_nodes) {
 async function postRecord(node) {
     // AnnictへのPOST
     if (Object.keys(node).indexOf("IsZeroEpisode")!=-1 && node.IsZeroEpisode){
-        //作品に対する投稿は、そもそもサポートされていない
-        //const url = `https://api.annict.com/v1/me/records?work_id=${node.annictId}&access_token=${GLOBAL_access_token}`;
-        //return await fetch(url, { method: "POST" }).then(res => res.status);
-        return false;
+        //作品に対する投稿は、status変更で対応
+        const url = `https://api.annict.com/v1/me/statuses?work_id=${node.annictId}&kind=watched&access_token=${GLOBAL_access_token}`;
+        return await fetch(url, { method: "POST" }).then(res => res.status);
     }
     else {
         const url = `https://api.annict.com/v1/me/records?episode_id=${node.annictId}&access_token=${GLOBAL_access_token}`;
