@@ -1,6 +1,6 @@
 
 
-const GLOBAL_sep = /\s|;|・|\(|（|～|‐|-|―|－|&|＆|#|＃/g;
+const GLOBAL_sep = /\s|;|・|\(|（|～|‐|-|―|－|&|＆|#|＃|^映画\s*|^劇場版\s*/g;
 let dsaDialog;
 
 // webhook default settings
@@ -8,15 +8,15 @@ const webhookDefaultSetting = {
     postUrl: "", webhookNoMatched: true,
     webhookNoWorkId: false, webhookSuccess: false, annictSend: true, webhookContentChanged: false, webhookContent: {}
 };
-const webhookDefaultString = JSON.stringify({[Date.now()]: webhookDefaultSetting});
+const webhookDefaultString = JSON.stringify({ [Date.now()]: webhookDefaultSetting });
 
 // check access token
-const inputObj = { token: "", sendingTime: 300, webhookSettings: webhookDefaultString };
+const inputObj = { token: "", sendingTime: 300, annictSend:true ,webhookSettings: webhookDefaultString };
 
 let GLOBAL_storage = {};
 let GLOBAL_access_token = "";
 
-function showMessage(message, dialog=dsaDialog) {
+function showMessage(message, dialog = dsaDialog) {
     dialog.text(message);
     dialog.hide().fadeIn('slow', () =>
         setTimeout(() => {
@@ -25,10 +25,10 @@ function showMessage(message, dialog=dsaDialog) {
     )
 }
 
-$(function(){
+$(function () {
     $("<style>", { type: 'text/css' })
-    .append(".dsa-dialog { position: fixed;  bottom: 60px;  right: 10px; border: 1px solid #888888;  padding: 2pt;  background-color: #ffffff;  filter: alpha(opacity=85);  -moz-opacity: 0.85;  -khtml-opacity: 0.85;  opacity: 0.85;      text-shadow: 0 -1px 1px #FFF, -1px 0 1px #FFF, 1px 0 1px #aaa;  -webkit-box-shadow: 1px 1px 2px #eeeeee;  -moz-box-shadow: 1px 1px 2px #eeeeee;  -webkit-border-radius: 3px;  -moz-border-radius: 3px; display: none;}")
-    .appendTo("head");
+        .append(".dsa-dialog { position: fixed;  bottom: 60px;  right: 10px; border: 1px solid #888888;  padding: 2pt;  background-color: #ffffff;  filter: alpha(opacity=85);  -moz-opacity: 0.85;  -khtml-opacity: 0.85;  opacity: 0.85;      text-shadow: 0 -1px 1px #FFF, -1px 0 1px #FFF, 1px 0 1px #aaa;  -webkit-box-shadow: 1px 1px 2px #eeeeee;  -moz-box-shadow: 1px 1px 2px #eeeeee;  -webkit-border-radius: 3px;  -moz-border-radius: 3px; display: none;}")
+        .appendTo("head");
     $("<div>").addClass("dsa-dialog").text('Message').appendTo("body");
     dsaDialog = $(".dsa-dialog");
 
@@ -37,7 +37,7 @@ $(function(){
         GLOBAL_access_token = GLOBAL_storage.token;
         if (GLOBAL_access_token == "") showMessage("There is no access token of `Annict`.");
         if (GLOBAL_storage.sendingTime - 0 < 0) GLOBAL_storage.sendingTime = 300;
-        if (Object.keys(GLOBAL_storage).indexOf("annictSend")==-1) GLOBAL_storage.annictSend = true;
+        if (Object.keys(GLOBAL_storage).indexOf("annictSend") == -1) GLOBAL_storage.annictSend = true;
     })
 })
 
@@ -100,6 +100,7 @@ window.onload = async function () {
             await post2webhook({ danime: danime, error: "noWorkMatched" });
             return;
         }
+        console.log(result_nodes)
         let goodWorkNodes = await checkTitleWithWorkId(danime.workId, result_nodes);
         const workIdIsFound = (goodWorkNodes.length != 0);
         if (!workIdIsFound) {
@@ -129,7 +130,7 @@ window.onload = async function () {
             //console.log(GLOBAL_storage.annictSend);
             if (GLOBAL_storage.annictSend) {
                 const status = await postRecord(episode_node.annictId);
-                const result_message=`${danime.workTitle} ${danime.episodeNumber} Annict sending ${status ? 'successed' : 'failed'}.`;
+                const result_message = `${danime.workTitle} ${danime.episodeNumber} Annict sending ${status ? 'successed' : 'failed'}.`;
                 console.log(result_message);
                 showMessage(result_message);
             }
@@ -189,13 +190,13 @@ async function checkTitleWithWorkId(danime_workId, work_nodes) {
         const db_url = `https://api.annict.com/db/works/${annictId}/programs`;
         const db_html = await fetch(db_url).then(d => d.body)
             .then(d => d.getReader()).then(reader => reader.read())
-            .then(db_reader=>new TextDecoder("utf-8").decode(db_reader.value));
+            .then(db_reader => new TextDecoder("utf-8").decode(db_reader.value));
 
         const danime_info = $("tr", db_html).toArray()
             .map(el => [$("td:eq(1)", el).text(), $("td:eq(5)", el).text()])
             .filter(d => d[0].indexOf("241") != -1)
-            .map(d => d[1].match(/\d+/) );
-        if (danime_info.length>0) continue;
+            .map(d => d[1].match(/\d+/));
+        if (danime_info.length > 0) continue;
         if (danime_info.indexOf(danime_workId) != -1) good_nodes.push(work_node);
     }
     return good_nodes;
@@ -220,10 +221,10 @@ async function post2webhook(args_dict) {
         "noWorkId": "webhookNoWorkId", "none": "webhookSuccess"
     }
     const headers = {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json'
+        "Accept": "application/json",
+        "Content-Type": "application/json"
     }
-    let webhookSettings=checkWebhookSettings(GLOBAL_storage.webhookSettings);
+    let webhookSettings = checkWebhookSettings(GLOBAL_storage.webhookSettings);
 
     for (const webhookSetting of Object.values(webhookSettings)) {
         let postData = {};
@@ -231,7 +232,7 @@ async function post2webhook(args_dict) {
             const postJson = webhookSetting.webhookContent;
             postData = Object.entries(postJson).reduce((obj, kv) => {
                 const val = kv[1].replace(/\{[^\{]+\}/g, s_in => {
-                    s=s_in.slice(1,-1);
+                    s = s_in.slice(1, -1);
                     if (Object.keys(origPostData).indexOf(s) != -1) return origPostData[s];
                     else return s;
                 });
@@ -240,9 +241,9 @@ async function post2webhook(args_dict) {
         } else postData = origPostData;
         //console.log(webhookSetting);
         if (!Object.entries(webhookMatchingObj).some(kv => origPostData.error.indexOf(kv[0]) != -1 && webhookSetting[kv[1]])) continue;
-        let options={ method: "POST", headers:headers, body: JSON.stringify(postData) };
-        if (webhookSetting.postUrl.indexOf("://script.google.com/macros/")!=-1) options.mode="no-cors";
-        const res=await fetch(webhookSetting.postUrl, options);
+        let options = { method: "POST", headers: headers, body: JSON.stringify(postData) };
+        if (webhookSetting.postUrl.indexOf("://script.google.com/macros/") != -1) options.mode = "no-cors";
+        const res = await fetch(webhookSetting.postUrl, options);
         console.log(postData, res);
     }
 }
@@ -287,14 +288,14 @@ async function fetchWork(title) {
         .then(jsoned => jsoned.errors ? [] : jsoned.data.searchWorks.edges);
 }
 
-function checkWebhookSettings(webhookSettingsTmp){
-    let webhookSettings={};
-    try { webhookSettings = JSON.parse(webhookSettingsTmp);}
+function checkWebhookSettings(webhookSettingsTmp) {
+    let webhookSettings = {};
+    try { webhookSettings = JSON.parse(webhookSettingsTmp); }
     catch (e) {
         try {
             webhookSettings = [...Array(webhookSettingsTmp.length).keys()]
-            .reduce((acc,cur)=>Object.assign(acc, {[cur]:webhookSettingsTmp[cur]}, {}));
-        } catch (e) {webhookSettings = JSON.parse(webhookDefaultString);}
+                .reduce((acc, cur) => Object.assign(acc, { [cur]: webhookSettingsTmp[cur] }, {}));
+        } catch (e) { webhookSettings = JSON.parse(webhookDefaultString); }
     }
     return webhookSettings;
 }
