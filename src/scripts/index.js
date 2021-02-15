@@ -103,7 +103,7 @@ window.onload = async function () {
         const danime=workInfo.danime;
         if (GLOBAL_storage.annictSend) {
             console.log("Start Sending");
-            const status = await postRecord(node.annictId);
+            const status = await postRecord(node);
             const result_message = `${danime.workTitle} ${danime.episodeNumber} Annict sending ${status ? 'successed' : 'failed'}.`;
             console.log(result_message);
             showMessage(result_message);
@@ -144,7 +144,7 @@ window.onload = async function () {
 
         const combinedEpisodeNode = [].concat(...goodWorkNodes.map(workNode=>{
             if (workNode.episodes.edges.length>0) return workNode.episodes.edges.map(d => d.node);
-            else return {title:workNode.title, number:"", annictId:workNode.annictId, media:workNode.media}; // only 1 episode
+            else return {title:workNode.title, number:"", annictId:workNode.annictId, media:workNode.media, IsZeroEpisode:true}; // only 0 episode
         }));
         console.log(combinedEpisodeNode)
         const episodes_numberAndCheck = combinedEpisodeNode.map(episode_node =>
@@ -176,8 +176,6 @@ window.onload = async function () {
 }
 
 //------------------ functions -------------------
-
-
 
 function remakeString(input_str, mode = "title") {
     const delete_array = ["「", "」", "『", "』", "｢", "｣"];
@@ -230,10 +228,18 @@ async function checkTitleWithWorkId(danime_workId, work_nodes) {
     return good_nodes;
 }
 
-async function postRecord(episodeId) {
+async function postRecord(node) {
     // AnnictへのPOST
-    const url = `https://api.annict.com/v1/me/records?episode_id=${episodeId}&access_token=${GLOBAL_access_token}`;
-    return await fetch(url, { method: "POST" }).then(res => res.status);
+    if (Object.keys(node).indexOf("IsZeroEpisode")!=-1 && node.IsZeroEpisode){
+        //作品に対する投稿は、そもそもサポートされていない
+        //const url = `https://api.annict.com/v1/me/records?work_id=${node.annictId}&access_token=${GLOBAL_access_token}`;
+        //return await fetch(url, { method: "POST" }).then(res => res.status);
+        return false;
+    }
+    else {
+        const url = `https://api.annict.com/v1/me/records?episode_id=${node.annictId}&access_token=${GLOBAL_access_token}`;
+        return await fetch(url, { method: "POST" }).then(res => res.status);
+    }
 }
 
 async function post2webhook(args_dict) {
