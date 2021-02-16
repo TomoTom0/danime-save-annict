@@ -23,8 +23,9 @@ Details on [Quick Tutorial](https://hackmd.io/@ystl/Hy1h_mqcv/%2FQRGRL9xxT7G9isw
 - **Sending Option**: You can change some options about sending to Annict.
 - **Webhook**: Multi webhook posting are supported.
 ## Caution
-現在の仕様上、劇場版のように1つの話を複数に分割している作品や、逆に短編アニメで複数話を1つにまとめている作品は未対応です。
+現在の仕様上、~~劇場版のように1つの話を複数に分割している作品や、逆に~~ 短編アニメで複数話を1つにまとめている作品は未対応です。
 
+2021/2/16追記: 劇場版作品に対応しました。
 ## Reference
 
 - [kakunpc / danime-save-annict](https://github.com/kakunpc/danime-save-annict)

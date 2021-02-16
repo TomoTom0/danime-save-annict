@@ -6,12 +6,12 @@ let dsaDialog;
 // webhook default settings
 const webhookDefaultSetting = {
     postUrl: "", webhookNoMatched: true,
-    webhookNoWorkId: false, webhookSuccess: false, annictSend: true, webhookContentChanged: false, webhookContent: {}
+    webhookNoWorkId: false, webhookSuccess: false, webhookContentChanged: false, webhookContent: {}
 };
 const webhookDefaultString = JSON.stringify({ [Date.now()]: webhookDefaultSetting });
 
 // check access token
-const inputObj = { token: "", sendingTime: 300, annictSend:true, webhookSettings: webhookDefaultString };
+const inputObj = { token: "", sendingTime: 300, annictSend:true, withTwitter:false, withFacebook:false, webhookSettings: webhookDefaultString };
 
 let GLOBAL_storage = {};
 let GLOBAL_access_token = "";
@@ -232,11 +232,14 @@ async function postRecord(node) {
     // AnnictへのPOST
     if (Object.keys(node).indexOf("IsZeroEpisode")!=-1 && node.IsZeroEpisode){
         //作品に対する投稿は、status変更で対応
-        const url = `https://api.annict.com/v1/me/statuses?work_id=${node.annictId}&kind=watched&access_token=${GLOBAL_access_token}`;
+        const parameters={"work_id":node.annictId,kind:"watched", access_token:GLOBAL_access_token}
+        const url = `https://api.annict.com/v1/me/statuses?${Object.entries(parameters).map(d=>d.join("=")).join("&")}`;
         return await fetch(url, { method: "POST" }).then(res => res.status);
     }
     else {
-        const url = `https://api.annict.com/v1/me/records?episode_id=${node.annictId}&access_token=${GLOBAL_access_token}`;
+        const parameters={episode_id:node.annictId, access_token: GLOBAL_access_token,
+             share_twitter:GLOBAL_storage.withTwitter, share_facebook:GLOBAL_storage.withFacebook};
+        const url = `https://api.annict.com/v1/me/records?${Object.entries(parameters).map(d=>d.join("=")).join("&")}`;
         return await fetch(url, { method: "POST" }).then(res => res.status);
     }
 }
