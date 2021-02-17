@@ -1,6 +1,6 @@
 
 
-const GLOBAL_sep = /\s+|;|・|\(|（|～|‐|-|―|－|&|＆|#|＃|映画\s*|劇場版\s*|!|！|\?|？|…/g;
+const GLOBAL_sep = /\s+|;|・|\(|（|\)|）|～|‐|-|―|－|&|＆|#|＃|映画\s*|劇場版\s*|!|！|\?|？|…|『|』|「|」/g;
 let dsaDialog;
 
 // webhook default settings
@@ -59,13 +59,15 @@ window.onload = async function () {
         await obtainWork(WatchingEpisode).then(async workInfo => {
             console.log(workInfo);
             GLOBAL_RecordSend = (workInfo != {});
-            if (GLOBAL_RecordSend && workInfo.nodes == []) {
+            if (!GLOBAL_RecordSend && workInfo.nodes == []) {
                 const error_message = `No Hit Title: ${workInfo.danime.workTitle}`;
                 if (GLOBAL_access_token) showMessage(error_message);
                 await post2webhook(workInfo.webhook);
-            }
+            } 
             setTimeout(async () => { // in 5 min until video started
-                await sendRecord(workInfo, WatchingEpisode);
+                if (GLOBAL_RecordSend && workInfo.nodes !=[]){
+                    await sendRecord(workInfo, WatchingEpisode);
+                }
                 chrome.storage.sync.set({ lastWatched: JSON.stringify(WatchingEpisode), lastVideoOver: false });
             });
         }, GLOBAL_storage.sendingTime * 1000)
@@ -77,7 +79,9 @@ window.onload = async function () {
             episodeNumber: $(".backInfoTxt2").text(),
             number: title2number(remakeString($(".backInfoTxt2").text(), "episodeNumber"))
         };
-        await sendRecord(workInfo, WatchingEpisode);
+        if (GLOBAL_RecordSend && workInfo.nodes != []) {
+            await sendRecord(workInfo, WatchingEpisode);
+        }
         chrome.storage.sync.set({ lastWatched: JSON.stringify(WatchingEpisode), lastVideoOver: true });
         // 最後まで見た場合, lastVideoOver=trueで把握
     });
