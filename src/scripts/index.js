@@ -127,7 +127,8 @@ window.onload = async function () {
             splitedTitle: tmp_workTitle.split(GLOBAL_sep).filter(d=>!/^\s*$/.test(d)),
             workId: location.href.match(/(?<=partId=)\d{5}/)[0]
         };
-        if (!GLOBAL_access_token ) return {danime:danime, node:{} , webhook:{ danime: danime, error: "noAnnictToken" }}
+        // Annict TokenがなくてもWebhookは実行できるように変更
+        if (!GLOBAL_access_token ) return {danime:danime, node:{} , webhook:{ danime: danime, error: "noAnnictToken" }};
         const result_nodes = await fetchWork(danime.splitedTitle[0])
             .then(d => d.map(dd => dd.node));
         //console.log(result_nodes)
