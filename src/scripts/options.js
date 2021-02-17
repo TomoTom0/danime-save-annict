@@ -1,7 +1,7 @@
 
 const webhookDefaultSetting = {
     postUrl: "", webhookNoMatched: true,
-    webhookNoWorkId: false, webhookSuccess: false, annictSend: true, webhookContentChanged: false, webhookContent: {}
+    webhookNoWorkId: false, webhookSuccess: false, webhookContentChanged: false, webhookContent: {}
 };
 const webhookDefaultString = JSON.stringify({ [Date.now()]: webhookDefaultSetting });
 
@@ -12,7 +12,7 @@ const webhookKeys = {
 
 const otherKeys = {
     input: { token: "", sendingTime: 300 },
-    check: { annictSend: true }
+    check: { annictSend: true, withTwitter:false, withFacebook:false }
 }
 
 // メッセージ用のボックスをInjectする
