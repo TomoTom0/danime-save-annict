@@ -111,7 +111,7 @@ window.onload = async function () {
     }
 
     async function identifyWork() {
-        if (!GLOBAL_access_token || !GLOBAL_notSent) return {};
+        if (!GLOBAL_notSent) return {};
 
         //const GLOBAL_site=["https://anime.dmkt-sp.jp/animestore/sc_d_pc?partId*", # for Amazon Prime
         //"https://www.amazon.co.jp/Amazon-Video/b?ie=UTF8&node="].filter(d=>location.href.indexOf(d)!=-1)
@@ -127,11 +127,12 @@ window.onload = async function () {
             splitedTitle: tmp_workTitle.split(GLOBAL_sep).filter(d=>!/^\s*$/.test(d)),
             workId: location.href.match(/(?<=partId=)\d{5}/)[0]
         };
+        if (!GLOBAL_access_token ) return {danime:danime, node:{} , webhook:{ danime: danime, error: "noAnnictToken" }}
         const result_nodes = await fetchWork(danime.splitedTitle[0])
             .then(d => d.map(dd => dd.node));
         //console.log(result_nodes)
         if (result_nodes.length == 0) {
-            return return_obj={danime:danime, node:{} , webhook:{ danime: danime, error: "noWorkMatched" }}
+            return {danime:danime, node:{} , webhook:{ danime: danime, error: "noWorkMatched" }}
         }
         let goodWorkNodes = await checkTitleWithWorkId(danime.workId, result_nodes);
         const workIdIsFound = (goodWorkNodes.length != 0);
