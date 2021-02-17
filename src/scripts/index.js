@@ -109,7 +109,7 @@ window.onload = async function () {
             for (const node of workInfo.nodes) {
                 statuses.push(await post2annict(node));
             }
-            const result_message = `${danime.workTitle} ${danime.episodeNumber} Annict sending ${status.every(d => d) ? 'successed' : 'failed'}.`;
+            const result_message = `${danime.workTitle} ${danime.episodeNumber} Annict sending ${statuses.every(d => d) ? 'successed' : 'failed'}.`;
             console.log(result_message);
             showMessage(result_message);
         }
