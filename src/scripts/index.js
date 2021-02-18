@@ -29,7 +29,7 @@ $(function () {
     $("<style>", { type: 'text/css' })
         .append(".dsa-dialog { position: fixed;  bottom: 60px;  right: 10px; border: 1px solid #888888;  padding: 2pt;  background-color: #ffffff;  filter: alpha(opacity=85);  -moz-opacity: 0.85;  -khtml-opacity: 0.85;  opacity: 0.85;      text-shadow: 0 -1px 1px #FFF, -1px 0 1px #FFF, 1px 0 1px #aaa;  -webkit-box-shadow: 1px 1px 2px #eeeeee;  -moz-box-shadow: 1px 1px 2px #eeeeee;  -webkit-border-radius: 3px;  -moz-border-radius: 3px; display: none;}")
         .appendTo("head");
-    $("<div>").addClass("dsa-dialog").text('Message').appendTo("body");
+    $("<div>").addClass("dsa-dialog").text("Message").appendTo("body");
     dsaDialog = $(".dsa-dialog");
 
     chrome.storage.sync.get(inputObj, items => {
@@ -404,8 +404,7 @@ const const_kanji = {
 };
 
 function kanji2arab(src) {
-    const reg = new RegExp(`[${const_kanji.num.char}${const_kanji.mag1.char}]\
-        [${const_kanji.num.char}${const_kanji.mag1.char}${const_kanji.mag2.char}]*`, "g");
+    const reg = new RegExp(`[${const_kanji.num.char}${const_kanji.mag1.char}][${const_kanji.num.char}${const_kanji.mag1.char}${const_kanji.mag2.char}]*`, "g");
     return src.replace(reg, $0 => toArb($0));
 };
 
