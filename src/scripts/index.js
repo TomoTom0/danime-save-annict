@@ -53,7 +53,8 @@ window.onload = async function () {
             workTitle: $(".backInfoTxt1").text(),
             episodeTitle: $(".backInfoTxt3").text(),
             episodeNumber: $(".backInfoTxt2").text(),
-            number: title2number(remakeString($(".backInfoTxt2").text(), "episodeNumber"))
+            number: title2number(remakeString($(".backInfoTxt2").text(), "episodeNumber")),
+            workId: location.href.match(/(?<=partId=)\d{5}/)[0]
         };
         //console.log(WatchingEpisode);
         await obtainWork(WatchingEpisode).then(async workInfo => {
@@ -77,7 +78,8 @@ window.onload = async function () {
             workTitle: $(".backInfoTxt1").text(),
             episodeTitle: $(".backInfoTxt3").text(),
             episodeNumber: $(".backInfoTxt2").text(),
-            number: title2number(remakeString($(".backInfoTxt2").text(), "episodeNumber"))
+            number: title2number(remakeString($(".backInfoTxt2").text(), "episodeNumber")),
+            workId: location.href.match(/(?<=partId=)\d{5}/)[0]
         };
         if (GLOBAL_RecordSend && workInfo.nodes != []) {
             await sendRecord(workInfo, WatchingEpisode);
@@ -137,7 +139,8 @@ window.onload = async function () {
                     workTitle: WatchingEpisode.workTitle,
                     episodeTitle: "",
                     episodeNumber: `${episodeNumber}`,
-                    number: episodeNumber
+                    number: episodeNumber,
+                    workId: WatchingEpisode.workId
                 }
                 const workInfoTmp = await identifyWork(episodeNow);
                 if (workInfoTmp != {}) workInfos.push(workInfoTmp);
@@ -158,7 +161,7 @@ window.onload = async function () {
             episodeTitle: remakeString(WatchingEpisode.episodeTitle, "title"),
             number: WatchingEpisode.number,
             splitedTitle: WatchingEpisode.workTitle.split(GLOBAL_sep).filter(d => !/^\s*$/.test(d)),
-            workId: location.href.match(/(?<=partId=)\d{5}/)[0]
+            workId: WatchingEpisode.workId
         };
         // Annict TokenがなくてもWebhookは実行できるように変更
         if (!GLOBAL_access_token) return { danime: danime, nodes: [], webhook: { danime: danime, error: "noAnnictToken" } };
@@ -199,7 +202,7 @@ window.onload = async function () {
         const valid_check_methods = [...Array(judge_kinds).keys()].filter(num => episodes_judges.filter(d => d[num]).length > 0);
         //console.log(danime, combinedEpisodeNode, episodes_numberAndCheck)
         const error_messages = [[valid_check_methods.length == 0, "noEpisodeMatched"], [!workIdIsFound, "noWorkId"]]
-            .filter(d => d[0]).map(d => d[1]).join(" ");
+            .filter(d => d[0]).map(d => d[1]).join(" ") || "none";
         if (valid_check_methods.length > 0) {
             const episode_node = episodes_judges.map((d, ind) => [d[valid_check_methods[0]], combinedEpisodeNode[ind]])
                 .filter(d => d[0]).map(d => d[1])[0];
@@ -263,9 +266,11 @@ async function checkTitleWithWorkId(danime_workId, work_nodes) {
             .map(el => [$("td:eq(1)", el).text(), $("td:eq(5)", el).text()])
             .filter(d => d[0].indexOf("241") != -1)
             .map(d => d[1].match(/\d+/));
-        if (danime_info.length > 0) continue;
-        if (danime_info.indexOf(danime_workId) != -1) good_nodes.push(work_node);
+        //console.log(danime_info==danime_workId, annictId)
+        if (danime_info.length == 0) continue;
+        if (danime_info==danime_workId) good_nodes.push(work_node);
     }
+    console.log(good_nodes)
     return good_nodes;
 }
 
