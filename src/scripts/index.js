@@ -70,6 +70,7 @@ window.onload = async function () {
                     await sendRecord(workInfo, WatchingEpisode);
                 }
                 chrome.storage.sync.set({ lastWatched: JSON.stringify(WatchingEpisode), lastVideoOver: false });
+                GLOBAL_RecordSend=false;
             });
         }, GLOBAL_storage.sendingTime * 1000)
     });
@@ -344,7 +345,6 @@ async function fetchWork(title) {
                     title
                     annictId
                     media
-                    malAnimeId
                     episodes(
                         orderBy: { field: SORT_NUMBER, direction: ASC },
                     ) {
