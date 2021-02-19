@@ -45,10 +45,11 @@ $(function () {
 window.onload = async function () {
 
     // メッセージ用のボックスをInjectする
-    let GLOBAL_RecordSend = true;
+    let RecordSend = true;
     const video = $("#video").get(0);
     let workInfo = {};
     video.addEventListener("loadstart", async function () {
+        RecordSend = true;
         const WatchingEpisode = {
             workTitle: $(".backInfoTxt1").text(),
             episodeTitle: $(".backInfoTxt3").text(),
@@ -56,21 +57,19 @@ window.onload = async function () {
             number: title2number(remakeString($(".backInfoTxt2").text(), "episodeNumber")),
             workId: location.href.match(/(?<=partId=)\d{5}/)[0]
         };
-        //console.log(WatchingEpisode);
         await obtainWork(WatchingEpisode).then(async workInfo => {
             console.log(workInfo);
-            GLOBAL_RecordSend = (workInfo != {});
-            if (!GLOBAL_RecordSend && workInfo.nodes == []) {
+            if (workInfo == {} || workInfo.nodes == []) {
                 const error_message = `No Hit Title: ${workInfo.danime.workTitle}`;
                 if (GLOBAL_access_token) showMessage(error_message);
                 await post2webhook(workInfo.webhook);
             } 
             setTimeout(async () => { // in 5 min until video started
-                if (GLOBAL_RecordSend && workInfo.nodes !=[]){
-                    await sendRecord(workInfo, WatchingEpisode);
+                if (workInfo!={} && workInfo.nodes !=[]){
+                    await sendRecord(workInfo, WatchingEpisode, RecordSend);
                 }
                 chrome.storage.sync.set({ lastWatched: JSON.stringify(WatchingEpisode), lastVideoOver: false });
-                GLOBAL_RecordSend=false;
+                RecordSend=false;
             });
         }, GLOBAL_storage.sendingTime * 1000)
     });
@@ -82,8 +81,8 @@ window.onload = async function () {
             number: title2number(remakeString($(".backInfoTxt2").text(), "episodeNumber")),
             workId: location.href.match(/(?<=partId=)\d{5}/)[0]
         };
-        if (GLOBAL_RecordSend && workInfo.nodes != []) {
-            await sendRecord(workInfo, WatchingEpisode);
+        if (workInfo!={} && workInfo.nodes != []) {
+            await sendRecord(workInfo, WatchingEpisode, RecordSend);
         }
         chrome.storage.sync.set({ lastWatched: JSON.stringify(WatchingEpisode), lastVideoOver: true });
         // 最後まで見た場合, lastVideoOver=trueで把握
@@ -93,15 +92,16 @@ window.onload = async function () {
         sendAnnict();
     });*/
 
-    async function sendRecord(workInfo, WatchingEpisode) {
+    async function sendRecord(workInfo, WatchingEpisode, RecordSend=true) {
+        if (!RecordSend || workInfo=={} || workInfo.nodes==[]) return ;
         chrome.storage.sync.get({ lastWatched: JSON.stringify({}), lastVideoOver: false }, async item => {
             const lastWatched = JSON.parse(item.lastWatched);
             const IsSuspended = (WatchingEpisode == lastWatched) && !item.lastVideoOver;
             const IsSameMovie = (workInfo.nodes.some(d => d.media == "MOVIE")) && (lastWatched.workTitle == WatchingEpisode.workTitle);
             const IsSplitedEpisode = Object.entries({ workTitle: true, episodeTitle: true, episodeNumber: false, number: true })
                 .every(kv => kv[1] == (lastWatched[kv[0]] == WatchingEpisode[kv[0]]));
-            //console.log({ GLOBAL_RecordSend, IsSuspended, IsSameMovie, IsSplitedEpisode })
-            if (GLOBAL_RecordSend && (!IsSuspended || !IsSameMovie || !IsSplitedEpisode)) {
+            //console.log({ RecordSend, IsSuspended, IsSameMovie, IsSplitedEpisode })
+            if (!IsSuspended || !IsSameMovie || !IsSplitedEpisode) {
                 await post2webhook(workInfo.webhook);
                 await sendAnnict(workInfo);
             }
@@ -151,7 +151,6 @@ window.onload = async function () {
         }
     }
     async function identifyWork(WatchingEpisode) {
-        if (!GLOBAL_RecordSend) return {};
 
         //const GLOBAL_site=["https://anime.dmkt-sp.jp/animestore/sc_d_pc?partId*", # for Amazon Prime
         //"https://www.amazon.co.jp/Amazon-Video/b?ie=UTF8&node="].filter(d=>location.href.indexOf(d)!=-1)
@@ -271,7 +270,6 @@ async function checkTitleWithWorkId(danime_workId, work_nodes) {
         if (danime_info.length == 0) continue;
         if (danime_info==danime_workId) good_nodes.push(work_node);
     }
-    console.log(good_nodes)
     return good_nodes;
 }
 
