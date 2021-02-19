@@ -74,24 +74,23 @@ window.onload = async function () {
                 WatchingEpisodeLast = WatchingEpisodeNow;
                 console.log(WatchingEpisodeNow);
                 video = obtainVideoElement(videoSite);
-                await videoTriggered("start", RecordSend = true).then(d => {
+                await videoTriggered("start").then(d => {
                     WorkInfo = d[0];
-                    RecordSend = d[1];
+                    RecordWillBeSent = d[1];
                 })
                 video.addEventListener("ended", async () => { // video ended
-                    await videoTriggered("end", RecordSend, workInfo)
-                    // 最後まで見た場合, lastVideoOver=trueで把握
+                    await videoTriggered("end", RecordWillBeSent, workInfo)
                 })
             } else WatchingEpisodeLast = WatchingEpisodeNow;
         }, 1000 * 2)
     }
 
-    async function videoTriggered(flag, RecordSend = true, workInfo = {}) {
+    async function videoTriggered(flag, RecordWillBeSent = true, workInfo = {}) {
+        console.log("start");
         const WatchingEpisode = obtainWatching(videoSite);
+        console.log(WatchingEpisode);
         if (flag == "start") {
-            console.log("start");
-            RecordSend = true;
-            console.log(WatchingEpisode);
+            RecordWillBeSent = true;
             await obtainWork(WatchingEpisode).then(async workInfo => {
                 console.log(workInfo);
                 if (workInfo == {} || workInfo.nodes == []) {
@@ -101,29 +100,31 @@ window.onload = async function () {
                 }
                 setTimeout(async () => { // in 5 min until video started
                     if (workInfo != {} && workInfo.nodes != []) {
-                        await sendRecord(workInfo, WatchingEpisode, RecordSend);
+                        await sendRecord(workInfo, WatchingEpisode, RecordWillBeSent);
                     }
-                    RecordSend = false;
+                    RecordWillBeSent = false;
+                    chrome.storage.sync.set({ lastWatched: JSON.stringify(WatchingEpisode), lastVideoOver: false });
                 }, GLOBAL_storage.sendingTime * 1000);
             })
         } else if (flag == "end") {
             if (workInfo != {} && workInfo.nodes != []) {
-                await sendRecord(workInfo, WatchingEpisode, RecordSend);
+                await sendRecord(workInfo, WatchingEpisode, RecordWillBeSent);
             }
-            chrome.storage.sync.set({ lastWatched: JSON.stringify(WatchingEpisode), lastVideoOver: false });
+            chrome.storage.sync.set({ lastWatched: JSON.stringify(WatchingEpisode), lastVideoOver: true });
+            // 最後まで見た場合, lastVideoOver=trueで把握
         }
-        return workInfo, RecordSend;
+        return workInfo, RecordWillBeSent;
     }
     async function loadMain(videoSite, videoTrigger) {
-        let RecordSend = true;
+        let RecordWillBeSent = true;
         let workInfo = {};
 
         console.log(videoSite)
         chrome.storage.sync.get(checkValid, items => {
             if (!items[`valid_${videoSite}`]) return;
         })
-        let video;
 
+        let video;
         const videoSearching = setInterval(function () {
             video = obtainVideoElement(videoSite);
             //console.log(video)
@@ -134,32 +135,27 @@ window.onload = async function () {
                 video.addEventListener(videoTrigger, async function () {
                     await videoTriggered("start", true).then(d => {
                         workInfo = d[0];
-                        RecordSend = d[1];
+                        RecordWillBeSent = d[1];
                     })
                 }, { once: true });
 
                 video.addEventListener("ended", async () => { // video ended
-                    await videoTriggered("end", RecordSend, workInfo)
-                    // 最後まで見た場合, lastVideoOver=trueで把握
+                    await videoTriggered("end", RecordWillBeSent, workInfo);
                 });
-                /*const nextButton = $(".nextButton").get(0)
-                nextButton.addEventListener("click", () => { // video skipped
-                    sendAnnict();
-                });*/
             }
         }, 1000)
 
     }
 
-    async function sendRecord(workInfo, WatchingEpisode, RecordSend = true) {
-        if (!RecordSend || workInfo == {} || workInfo.nodes == []) return;
+    async function sendRecord(workInfo, WatchingEpisode, RecordWillBeSent = true) {
+        if (!RecordWillBeSent || workInfo == {} || workInfo.nodes == []) return;
         chrome.storage.sync.get({ lastWatched: JSON.stringify({}), lastVideoOver: false }, async item => {
             const lastWatched = JSON.parse(item.lastWatched);
             const IsSuspended = (WatchingEpisode == lastWatched) && !item.lastVideoOver;
             const IsSameMovie = (workInfo.nodes.some(d => d.media == "MOVIE")) && (lastWatched.workTitle == WatchingEpisode.workTitle);
             const IsSplitedEpisode = Object.entries({ workTitle: true, episodeTitle: true, episodeNumber: false, number: true })
                 .every(kv => kv[1] == (lastWatched[kv[0]] == WatchingEpisode[kv[0]]));
-            //console.log({ RecordSend, IsSuspended, IsSameMovie, IsSplitedEpisode })
+            //console.log({ RecordWillBeSent, IsSuspended, IsSameMovie, IsSplitedEpisode })
             if (!IsSuspended || !IsSameMovie || !IsSplitedEpisode) {
                 await post2webhook(workInfo.webhook);
                 await sendAnnict(workInfo);
