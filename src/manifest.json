@@ -6,7 +6,7 @@
   "content_scripts": [
     {
       "matches": [
-        "https://anime.dmkt-sp.jp/animestore/sc_d_pc?partId*"
+        "https://anime.dmkt-sp.jp/animestore/sc_d_pc?partId*", "https://www.amazon.co.jp/gp/video/detail/*"
       ],
       "js": [
         "js/jquery-3.5.1.min.js", "scripts/index.js"

@@ -46,51 +46,56 @@ window.onload = async function () {
 
     // メッセージ用のボックスをInjectする
     let RecordSend = true;
-    const video = $("#video").get(0);
     let workInfo = {};
-    video.addEventListener("loadstart", async function () {
-        RecordSend = true;
-        const WatchingEpisode = {
-            workTitle: $(".backInfoTxt1").text(),
-            episodeTitle: $(".backInfoTxt3").text(),
-            episodeNumber: $(".backInfoTxt2").text(),
-            number: title2number(remakeString($(".backInfoTxt2").text(), "episodeNumber")),
-            workId: location.href.match(/(?<=partId=)\d{5}/)[0]
-        };
-        await obtainWork(WatchingEpisode).then(async workInfo => {
-            console.log(workInfo);
-            if (workInfo == {} || workInfo.nodes == []) {
-                const error_message = `No Hit Title: ${workInfo.danime.workTitle}`;
-                if (GLOBAL_access_token) showMessage(error_message);
-                await post2webhook(workInfo.webhook);
-            } 
-            setTimeout(async () => { // in 5 min until video started
-                if (workInfo!={} && workInfo.nodes !=[]){
+    const videoSite=Object.entries({
+        danime:"https://anime.dmkt-sp.jp/animestore/sc_d_pc?partId", // for danime
+        amazon:"https://www.amazon.co.jp/gp/video/detail/"}) // for Amazon Prime
+        .filter(kv=>location.href.indexOf(kv[1])!=-1).map(kv=>kv[0])[0];
+
+    let video;
+    const videoSearching=setInterval(function(){
+        video = (videoSite=="danime") ? $("#video").get(0) : $("video[width='100%']")[0];
+        if (video!=null) {
+            clearInterval(videoSearching);
+            video.addEventListener("play", async function () {
+                console.log("start")
+                RecordSend = true;
+                const WatchingEpisode =obtainWatching(videoSite);
+                console.log(WatchingEpisode)
+                await obtainWork(WatchingEpisode).then(async workInfo => {
+                    console.log(workInfo);
+                    if (workInfo == {} || workInfo.nodes == []) {
+                        const error_message = `No Hit Title: ${workInfo.danime.workTitle}`;
+                        if (GLOBAL_access_token) showMessage(error_message);
+                        await post2webhook(workInfo.webhook);
+                    } 
+                    setTimeout(async () => { // in 5 min until video started
+                        if (workInfo!={} && workInfo.nodes !=[]){
+                            await sendRecord(workInfo, WatchingEpisode, RecordSend);
+                        }
+                        chrome.storage.sync.set({ lastWatched: JSON.stringify(WatchingEpisode), lastVideoOver: false });
+                        RecordSend=false;
+                    });
+                }, GLOBAL_storage.sendingTime * 1000)
+            }, {once:true});
+        
+            video.addEventListener("ended", async () => { // video ended
+                const WatchingEpisode = obtainWatching(videoSite);
+                if (workInfo!={} && workInfo.nodes != []) {
                     await sendRecord(workInfo, WatchingEpisode, RecordSend);
                 }
-                chrome.storage.sync.set({ lastWatched: JSON.stringify(WatchingEpisode), lastVideoOver: false });
-                RecordSend=false;
+                chrome.storage.sync.set({ lastWatched: JSON.stringify(WatchingEpisode), lastVideoOver: true });
+                // 最後まで見た場合, lastVideoOver=trueで把握
             });
-        }, GLOBAL_storage.sendingTime * 1000)
-    });
-    video.addEventListener("ended", async () => { // video ended
-        const WatchingEpisode = {
-            workTitle: $(".backInfoTxt1").text(),
-            episodeTitle: $(".backInfoTxt3").text(),
-            episodeNumber: $(".backInfoTxt2").text(),
-            number: title2number(remakeString($(".backInfoTxt2").text(), "episodeNumber")),
-            workId: location.href.match(/(?<=partId=)\d{5}/)[0]
-        };
-        if (workInfo!={} && workInfo.nodes != []) {
-            await sendRecord(workInfo, WatchingEpisode, RecordSend);
+            /*const nextButton = $(".nextButton").get(0)
+            nextButton.addEventListener("click", () => { // video skipped
+                sendAnnict();
+            });*/
         }
-        chrome.storage.sync.set({ lastWatched: JSON.stringify(WatchingEpisode), lastVideoOver: true });
-        // 最後まで見た場合, lastVideoOver=trueで把握
-    });
-    /*const nextButton = $(".nextButton").get(0)
-    nextButton.addEventListener("click", () => { // video skipped
-        sendAnnict();
-    });*/
+    }, 1000)
+    
+    
+
 
     async function sendRecord(workInfo, WatchingEpisode, RecordSend=true) {
         if (!RecordSend || workInfo=={} || workInfo.nodes==[]) return ;
@@ -107,7 +112,57 @@ window.onload = async function () {
             }
         })
     }
-
+    function obtainWatching(videoSite="danime"){
+        if (videoSite=="danime"){
+            return {
+                site:videoSite,
+                workTitle: $(".backInfoTxt1").text(),
+                episodeTitle: $(".backInfoTxt3").text(),
+                episodeNumber: $(".backInfoTxt2").text(),
+                number: title2number(remakeString($(".backInfoTxt2").text(), "episodeNumber")),
+                workId: location.href.match(/(?<=partId=)\d{5}/)[0],
+                workIds: []
+            };
+        } else if (videoSite=="amazon"){
+            const workTitle=$("h1[data-automation-id='title']").text();
+            // obtain episode numbers
+            const candidates_tmp=document.getElementsByTagName("h2");
+            const candidates=[...Array(candidates_tmp.length).keys()].map(ind=>candidates_tmp[ind]);
+            const seasonAndEpisode=candidates.reduce((acc,cand)=>{
+                if (Array.from(cand.classList).join(" ").indexOf("subtitle")!=-1){
+                    return acc.concat([cand.textContent]);
+                } else return acc;
+            }, []);
+            if (seasonAndEpisode.length!=1) return {};
+            const episodeWriting=seasonAndEpisode[0].match(/(?<=シーズン\d+、エピソード\d+\s).*/);
+            if (episodeWriting.length==0) return {};
+            const episodeNumebrInd_candidates=episodeWriting[0].split(" ").map((d,ind)=>[ind,d])
+            .filter(d=>isFinite(title2number(remakeString(d[1], "episodeNumber"))))
+            if (episodeNumebrInd_candidates.length==0) return {};
+            const episodeNumebrInd=Math.min(...episodeNumebrInd_candidates.map(d=>d[0]));
+            // obtain detail scripts
+            const script_candidates_tmp=$("script[type='text/template']");
+            const script_candidates=[...Array(script_candidates_tmp.length).keys()].map(ind=>script_candidates_tmp[ind]);
+            const scripts=script_candidates.reduce((acc,cand)=>{
+                /* if (cand.innerHTML.indexOf(`{"props":{"state":{"features":{"enable`)!=-1){
+                    return Object.assign(acc, {enable: JSON.parse(cand.textContent)});
+                } else */ if(cand.innerHTML.indexOf(`{"props":{"state":{"features":{"isElcano`)!=-1) {
+                    return Object.assign(acc, {isElcano:JSON.parse(cand.textContent)})
+                } else return acc;
+            }, {});
+            const workId=scripts.isElcano.props.state.pageTitleId;
+            const workIds=scripts.isElcano.props.state.self[workId].asins;
+            return {
+                site:videoSite,
+                workTitle: workTitle,
+                episodeTitle: episodeWriting[0].split(" ").slice(episodeNumebrInd+1).join(" "),
+                episodeNumber:episodeWriting[0].split(" ")[episodeNumebrInd],
+                number:title2number(remakeString(episodeWriting[0].split(" ")[episodeNumebrInd], "episodeNumber")),
+                workId:workId,
+                workIds:workIds
+            }
+        } else return {};
+    }
     async function sendAnnict(workInfo) {
         if (GLOBAL_storage.annictSend) {
             console.log("sending to Annict");
@@ -137,11 +192,13 @@ window.onload = async function () {
             let workInfos = [];
             for (const episodeNumber of episodeNumbers) {
                 const episodeNow = {
+                    site:WatchingEpisode.site,
                     workTitle: WatchingEpisode.workTitle,
                     episodeTitle: "",
                     episodeNumber: `${episodeNumber}`,
                     number: episodeNumber,
-                    workId: WatchingEpisode.workId
+                    workId: WatchingEpisode.workId,
+                    workIds: WatchingEpisode.workIds
                 }
                 const workInfoTmp = await identifyWork(episodeNow);
                 if (workInfoTmp != {}) workInfos.push(workInfoTmp);
@@ -152,16 +209,15 @@ window.onload = async function () {
     }
     async function identifyWork(WatchingEpisode) {
 
-        //const GLOBAL_site=["https://anime.dmkt-sp.jp/animestore/sc_d_pc?partId*", # for Amazon Prime
-        //"https://www.amazon.co.jp/Amazon-Video/b?ie=UTF8&node="].filter(d=>location.href.indexOf(d)!=-1)
-
         const danime = {
+            site:WatchingEpisode.site,
             workTitle: WatchingEpisode.workTitle,
-            episodeNumber: remakeString(WatchingEpisode.episodeNumber, "episodeNumber"),
             episodeTitle: remakeString(WatchingEpisode.episodeTitle, "title"),
+            episodeNumber: remakeString(WatchingEpisode.episodeNumber, "episodeNumber"),
             number: WatchingEpisode.number,
             splitedTitle: WatchingEpisode.workTitle.split(GLOBAL_sep).filter(d => !/^\s*$/.test(d)),
-            workId: WatchingEpisode.workId
+            workId: WatchingEpisode.workId,
+            workIds: WatchingEpisode.workIds
         };
         // Annict TokenがなくてもWebhookは実行できるように変更
         if (!GLOBAL_access_token) return { danime: danime, nodes: [], webhook: { danime: danime, error: "noAnnictToken" } };
@@ -171,7 +227,7 @@ window.onload = async function () {
         if (result_nodes.length == 0) {
             return { danime: danime, nodes: [], webhook: { danime: danime, error: "noWorkMatched" } }
         }
-        let goodWorkNodes = await checkTitleWithWorkId(danime.workId, result_nodes);
+        let goodWorkNodes = await checkTitleWithWorkId(danime, result_nodes);
         const workIdIsFound = (goodWorkNodes.length != 0);
         if (!workIdIsFound) goodWorkNodes = result_nodes;
         console.log("Work Candidates:\n", goodWorkNodes);
@@ -251,8 +307,10 @@ function checkTitle(titles, mode = "length") {
 }
 
 
-async function checkTitleWithWorkId(danime_workId, work_nodes) {
+async function checkTitleWithWorkId(danime, work_nodes) {
     //現状、vod情報はREST APIやgraphQLから取得できない。(存在はしている)
+    const videoSite=danime.site;
+    const vod_dic={danime:241, amazon:243};
     let good_nodes = [];
     for (const work_node of work_nodes) {
         const annictId = work_node.annictId
@@ -264,11 +322,12 @@ async function checkTitleWithWorkId(danime_workId, work_nodes) {
 
         const danime_info = $("tr", db_html).toArray()
             .map(el => [$("td:eq(1)", el).text(), $("td:eq(5)", el).text()])
-            .filter(d => d[0].indexOf("241") != -1)
-            .map(d => d[1].match(/\d+/));
-        //console.log(danime_info==danime_workId, annictId)
+            .filter(d => d[0].indexOf(vod_dic[videoSite]) != -1)
+            .map(d => d[1].match(/\S+/));
         if (danime_info.length == 0) continue;
-        if (danime_info==danime_workId) good_nodes.push(work_node);
+        //console.log(danime_info[0][0], danime.workIds, danime.workIds.indexOf(danime_info[0][0]))
+        if (danime.site=="danime" && danime_info[0][0]==danime.workId) good_nodes.push(work_node);
+        else if (danime.site=="amazon" && danime.workIds.indexOf(danime_info[0][0])!=-1) good_nodes.push(work_node);
     }
     return good_nodes;
 }
