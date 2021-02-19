@@ -10,9 +10,11 @@ const webhookKeys = {
     input: ["postUrl"]
 };
 
+const checkValid= Object.assign(...["danime", "amazon", "netflix", "abema"].map(key=>Object({[`valid_${key}`]:true})))
+
 const otherKeys = {
     input: { token: "", sendingTime: 300 },
-    check: { annictSend: true, withTwitter:false, withFacebook:false }
+    check: Object.assign({ annictSend: true, withTwitter:false, withFacebook:false}, checkValid)
 }
 
 // メッセージ用のボックスをInjectする

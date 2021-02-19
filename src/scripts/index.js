@@ -1,6 +1,6 @@
 
 
-const GLOBAL_sep = /\s+|;|・|\(|（|\)|）|～|‐|-|―|－|&|＆|#|＃|映画\s*|劇場版\s*|!|！|\?|？|…|『|』|「|」/g;
+const GLOBAL_sep = /\s+|;|・|\(|（|\)|）|～|‐|-|―|－|&|＆|#|＃|映画\s*|劇場版\s*|!|！|\?|？|…|『|』|「|」|∬/g;
 let dsaDialog;
 
 // webhook default settings
@@ -10,8 +10,10 @@ const webhookDefaultSetting = {
 };
 const webhookDefaultString = JSON.stringify({ [Date.now()]: webhookDefaultSetting });
 
-// check access token
-const inputObj = { token: "", sendingTime: 300, annictSend: true, withTwitter: false, withFacebook: false, webhookSettings: webhookDefaultString };
+// option
+const checkValid= Object.assign(...["danime", "amazon", "netflix", "abema"].map(key=>Object({[`valid_${key}`]:true})))
+const inputObj = Object.assign({token: "", sendingTime: 300, annictSend: true,
+ withTwitter: false, withFacebook: false, webhookSettings: webhookDefaultString }, checkValid);
 
 let GLOBAL_storage = {};
 let GLOBAL_access_token = "";
@@ -49,7 +51,10 @@ window.onload = async function () {
     let workInfo = {};
     const videoSite=Object.entries({
         danime:"https://anime.dmkt-sp.jp/animestore/sc_d_pc?partId", // for danime
-        amazon:"https://www.amazon.co.jp/gp/video/detail/"}) // for Amazon Prime
+        amazon:"https://www.amazon.co.jp/gp/video/detail/", // for Amazon Prime
+        amazon:"https://www.amazon.co.jp/dp/", // for Amazon Prime
+        netflix:"https://www.netflix.com/episode/", // for Netflix
+        abema:"https://abema.tv/video/episode/"})  // abemaTV
         .filter(kv=>location.href.indexOf(kv[1])!=-1).map(kv=>kv[0])[0];
 
     let video;
@@ -126,10 +131,10 @@ window.onload = async function () {
         } else if (videoSite=="amazon"){
             const workTitle=$("h1[data-automation-id='title']").text();
             // obtain episode numbers
-            const candidates_tmp=document.getElementsByTagName("h2");
+            const candidates_tmp=$("h2");
             const candidates=[...Array(candidates_tmp.length).keys()].map(ind=>candidates_tmp[ind]);
             const seasonAndEpisode=candidates.reduce((acc,cand)=>{
-                if (Array.from(cand.classList).join(" ").indexOf("subtitle")!=-1){
+                if (cand.class.indexOf("subtitle")!=-1){
                     return acc.concat([cand.textContent]);
                 } else return acc;
             }, []);
@@ -161,7 +166,41 @@ window.onload = async function () {
                 workId:workId,
                 workIds:workIds
             }
-        } else return {};
+        } else if (videoSite=="netflix"){
+            const titleArea=$(".video-title>div");
+            const workTitle=$("h4", titleArea).text();
+            const episodeWriting=[$("span:eq(1)", titleArea).text()];
+            return {
+                site:videoSite,
+                workTitle: workTitle,
+                episodeTitle: episodeWriting[0].split(" ").slice(episodeNumebrInd+1).join(" "),
+                episodeNumber:episodeWriting[0].split(" ")[episodeNumebrInd],
+                number:title2number(remakeString(episodeWriting[0].split(" ")[episodeNumebrInd], "episodeNumber")),
+                workId:workId,
+                workIds:[]
+            }
+        } else if (videoSite=="abema"){
+            const candidates=$("script[type='application/ld+json']");
+            const jsonData=JAONS.parse(candidates).itemListElement;
+            if (jsonData[1].name!="アニメ") return {}; // require アニメ
+            const workTitle=jsonData[2].name;
+            const episodeWriting=[jsonData[3].name];
+            const episodeNumebrInd_candidates=episodeWriting[0].split(" ").map((d,ind)=>[ind,d])
+            .filter(d=>isFinite(title2number(remakeString(d[1], "episodeNumber"))))
+            if (episodeNumebrInd_candidates.length==0) return {};
+            const episodeNumebrInd=Math.min(...episodeNumebrInd_candidates.map(d=>d[0]));
+            const workId=location.href.match(/(?<=abema\.tv\/video\/episode\/)[^_]+)/)[0];
+            return {
+                site:videoSite,
+                workTitle: workTitle,
+                episodeTitle: episodeWriting[0].split(" ").slice(episodeNumebrInd+1).join(" "),
+                episodeNumber:episodeWriting[0].split(" ")[episodeNumebrInd],
+                number:title2number(remakeString(episodeWriting[0].split(" ")[episodeNumebrInd], "episodeNumber")),
+                workId:workId,
+                workIds:[]
+            }
+        } 
+        else return {};
     }
     async function sendAnnict(workInfo) {
         if (GLOBAL_storage.annictSend) {
@@ -356,7 +395,8 @@ async function post2webhook(args_dict) {
     const origPostData = {
         workTitle: danime.workTitle, episodeNumber: danime.episodeNumber,
         episodeTitle: danime.episodeTitle,
-        danimeWorkId: danime.workId, error: args_dict.error
+        danimeWorkId: danime.workId, 
+        site:danime.site, error: args_dict.error
     };
     const webhookMatchingObj = {
         "noWorkMatched": "webhookNoMatched", "noEpisodeMatched": "webhookNoMatched",
