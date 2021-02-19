@@ -11,9 +11,11 @@ const webhookDefaultSetting = {
 const webhookDefaultString = JSON.stringify({ [Date.now()]: webhookDefaultSetting });
 
 // option
-const checkValid= Object.assign(...["danime", "amazon", "netflix", "abema"].map(key=>Object({[`valid_${key}`]:true})))
-const inputObj = Object.assign({token: "", sendingTime: 300, annictSend: true,
- withTwitter: false, withFacebook: false, webhookSettings: webhookDefaultString }, checkValid);
+const checkValid = Object.assign(...["danime", "amazon", "netflix", "abema"].map(key => Object({ [`valid_${key}`]: true })))
+const inputObj = Object.assign({
+    token: "", sendingTime: 300, annictSend: true,
+    withTwitter: false, withFacebook: false, webhookSettings: webhookDefaultString
+}, checkValid);
 
 let GLOBAL_storage = {};
 let GLOBAL_access_token = "";
@@ -45,67 +47,112 @@ $(function () {
 
 
 window.onload = async function () {
+    const videoSite = Object.entries({
+        danime: "https://anime.dmkt-sp.jp/animestore/sc_d_pc?partId", // for danime
+        amazon: "https://www.amazon.co.jp/gp/video/detail/", // for Amazon Prime
+        amazon_: "https://www.amazon.co.jp/dp/", // for Amazon Prime
+        netflix: "https://www.netflix.com/episode/", // for Netflix
+        abema: "https://abema.tv/video/episode/"
+    })  // for abemaTV
+        .filter(kv => location.href.indexOf(kv[1]) != -1).map(kv => kv[0])[0].replace(/_*$/, "");
 
-    // メッセージ用のボックスをInjectする
-    let RecordSend = true;
-    let workInfo = {};
-    const videoSite=Object.entries({
-        danime:"https://anime.dmkt-sp.jp/animestore/sc_d_pc?partId", // for danime
-        amazon:"https://www.amazon.co.jp/gp/video/detail/", // for Amazon Prime
-        amazon_:"https://www.amazon.co.jp/dp/", // for Amazon Prime
-        netflix:"https://www.netflix.com/episode/", // for Netflix
-        abema:"https://abema.tv/video/episode/"})  // for abemaTV
-        .filter(kv=>location.href.indexOf(kv[1])!=-1).map(kv=>kv[0])[0].replace(/_*$/, "");
+    const videoTrigger_dic = { danime: "loadstart", amazon: "play", abema: "play", netflix: "play" }
+    const obtainVideoElement = (site) => {
+        if (site == "danime") return $("#video")[0];
+        else if (site == "amazon") return $("video[width='100%']")[0];
+        else if (site == "netflix") return $("video")[0];
+        else if (site == "abema") return $("video[preload='metadata']")[0];
+    }
+    await loadMain(videoSite, videoTrigger_dic[videoSite]);
 
-    //console.log(videoSite)
-    chrome.storage.sync.get(checkValid, items => {
-        //console.log(items)
-        if (!items[`valid_${videoSite}`]) return;
-    })
-    let video;
-    const videoSearching=setInterval(function(){
-        video = (videoSite=="danime") ? $("#video").get(0) : $("video[width='100%']")[0];
-        if (video!=null) {
-            clearInterval(videoSearching);
-            video.addEventListener("play", async function () {
-                console.log("start")
-                RecordSend = true;
-                const WatchingEpisode =obtainWatching(videoSite);
-                console.log(WatchingEpisode)
-                await obtainWork(WatchingEpisode).then(async workInfo => {
-                    console.log(workInfo);
-                    if (workInfo == {} || workInfo.nodes == []) {
-                        const error_message = `No Hit Title: ${workInfo.danime.workTitle}`;
-                        if (GLOBAL_access_token) showMessage(error_message);
-                        await post2webhook(workInfo.webhook);
-                    } 
-                    setTimeout(async () => { // in 5 min until video started
-                        if (workInfo!={} && workInfo.nodes !=[]){
-                            await sendRecord(workInfo, WatchingEpisode, RecordSend);
-                        }
-                        chrome.storage.sync.set({ lastWatched: JSON.stringify(WatchingEpisode), lastVideoOver: false });
-                        RecordSend=false;
-                    });
-                }, GLOBAL_storage.sendingTime * 1000)
-            }, {once:true});
-        
-            video.addEventListener("ended", async () => { // video ended
-                const WatchingEpisode = obtainWatching(videoSite);
-                if (workInfo!={} && workInfo.nodes != []) {
-                    await sendRecord(workInfo, WatchingEpisode, RecordSend);
+    //movie changes wihtout url moving
+    if (["amazon", "abema"].indexOf(videoSite) != -1) {
+        WatchingEpisodeLast = JSON.stringify(obtainWatching(videoSite));
+        setInterval(async function () {
+            WatchingEpisodeNow = JSON.stringify(obtainWatching(videoSite));
+            if (WatchingEpisodeNow != WatchingEpisodeLast) {
+                WatchingEpisodeLast = WatchingEpisodeNow;
+                console.log(WatchingEpisodeNow);
+                video = obtainVideoElement(videoSite);
+                await videoTriggered("start", RecordSend = true).then(d => {
+                    WorkInfo = d[0];
+                    RecordSend = d[1];
+                })
+                video.addEventListener("ended", async () => { // video ended
+                    await videoTriggered("end", RecordSend, workInfo)
+                    // 最後まで見た場合, lastVideoOver=trueで把握
+                })
+            } else WatchingEpisodeLast = WatchingEpisodeNow;
+        }, 1000 * 2)
+    }
+
+    async function videoTriggered(flag, RecordSend = true, workInfo = {}) {
+        const WatchingEpisode = obtainWatching(videoSite);
+        if (flag == "start") {
+            console.log("start");
+            RecordSend = true;
+            console.log(WatchingEpisode);
+            await obtainWork(WatchingEpisode).then(async workInfo => {
+                console.log(workInfo);
+                if (workInfo == {} || workInfo.nodes == []) {
+                    const error_message = `No Hit Title: ${workInfo.danime.workTitle}`;
+                    if (GLOBAL_access_token) showMessage(error_message);
+                    await post2webhook(workInfo.webhook);
                 }
-                chrome.storage.sync.set({ lastWatched: JSON.stringify(WatchingEpisode), lastVideoOver: true });
-                // 最後まで見た場合, lastVideoOver=trueで把握
-            });
-            /*const nextButton = $(".nextButton").get(0)
-            nextButton.addEventListener("click", () => { // video skipped
-                sendAnnict();
-            });*/
+                setTimeout(async () => { // in 5 min until video started
+                    if (workInfo != {} && workInfo.nodes != []) {
+                        await sendRecord(workInfo, WatchingEpisode, RecordSend);
+                    }
+                    RecordSend = false;
+                }, GLOBAL_storage.sendingTime * 1000);
+            })
+        } else if (flag == "end") {
+            if (workInfo != {} && workInfo.nodes != []) {
+                await sendRecord(workInfo, WatchingEpisode, RecordSend);
+            }
+            chrome.storage.sync.set({ lastWatched: JSON.stringify(WatchingEpisode), lastVideoOver: false });
         }
-    }, 1000)
+        return workInfo, RecordSend;
+    }
+    async function loadMain(videoSite, videoTrigger) {
+        let RecordSend = true;
+        let workInfo = {};
 
-    async function sendRecord(workInfo, WatchingEpisode, RecordSend=true) {
-        if (!RecordSend || workInfo=={} || workInfo.nodes==[]) return ;
+        console.log(videoSite)
+        chrome.storage.sync.get(checkValid, items => {
+            if (!items[`valid_${videoSite}`]) return;
+        })
+        let video;
+
+        const videoSearching = setInterval(function () {
+            video = obtainVideoElement(videoSite);
+            //console.log(video)
+            if (video != null) {
+                console.log(2)
+                clearInterval(videoSearching);
+
+                video.addEventListener(videoTrigger, async function () {
+                    await videoTriggered("start", true).then(d => {
+                        workInfo = d[0];
+                        RecordSend = d[1];
+                    })
+                }, { once: true });
+
+                video.addEventListener("ended", async () => { // video ended
+                    await videoTriggered("end", RecordSend, workInfo)
+                    // 最後まで見た場合, lastVideoOver=trueで把握
+                });
+                /*const nextButton = $(".nextButton").get(0)
+                nextButton.addEventListener("click", () => { // video skipped
+                    sendAnnict();
+                });*/
+            }
+        }, 1000)
+
+    }
+
+    async function sendRecord(workInfo, WatchingEpisode, RecordSend = true) {
+        if (!RecordSend || workInfo == {} || workInfo.nodes == []) return;
         chrome.storage.sync.get({ lastWatched: JSON.stringify({}), lastVideoOver: false }, async item => {
             const lastWatched = JSON.parse(item.lastWatched);
             const IsSuspended = (WatchingEpisode == lastWatched) && !item.lastVideoOver;
@@ -119,10 +166,10 @@ window.onload = async function () {
             }
         })
     }
-    function obtainWatching(videoSite="danime"){
-        if (videoSite=="danime"){
+    function obtainWatching(videoSite = "danime") {
+        if (videoSite == "danime") {
             return {
-                site:videoSite,
+                site: videoSite,
                 workTitle: $(".backInfoTxt1").text(),
                 episodeTitle: $(".backInfoTxt3").text(),
                 episodeNumber: $(".backInfoTxt2").text(),
@@ -130,79 +177,78 @@ window.onload = async function () {
                 workId: location.href.match(/(?<=partId=)\d{5}/)[0],
                 workIds: []
             };
-        } else if (videoSite=="amazon"){
-            const workTitle=$("h1[data-automation-id='title']").text();
+        } else if (videoSite == "amazon") {
+            const workTitle = $("h1[data-automation-id='title']").text();
             // obtain episode numbers
-            const candidates_tmp=$("h2");
-            const candidates=[...Array(candidates_tmp.length).keys()].map(ind=>candidates_tmp[ind]);
-            //console.log(candidates[4].classList)
-            const seasonAndEpisode=candidates.reduce((acc,cand)=>{
-                if (Array.from(cand.classList).join(" ").indexOf("subtitle")!=-1){
+            const candidates_tmp = $("h2");
+            const candidates = [...Array(candidates_tmp.length).keys()].map(ind => candidates_tmp[ind]);
+            const seasonAndEpisode = candidates.reduce((acc, cand) => {
+                if (Array.from(cand.classList).join(" ").indexOf("subtitle") != -1) {
                     return acc.concat([cand.textContent]);
                 } else return acc;
             }, []);
-            if (seasonAndEpisode.length!=1) {console.log(1); return {}};
-            const episodeWriting=seasonAndEpisode[0].match(/(?<=シーズン\d+、エピソード\d+\s).*/);
-            if (episodeWriting.length==0) {console.log(2); return {}};
-            const episodeNumebrInd_candidates=episodeWriting[0].split(" ").map((d,ind)=>[ind,d])
-            .filter(d=>isFinite(title2number(remakeString(d[1], "episodeNumber"))))
-            if (episodeNumebrInd_candidates.length==0) {console.log(3);return {}};
-            const episodeNumebrInd=Math.min(...episodeNumebrInd_candidates.map(d=>d[0]));
+            if (seasonAndEpisode.length != 1) return {};
+            const episodeWriting = seasonAndEpisode[0].match(/(?<=シーズン\d+、エピソード\d+\s).*/);
+            if (episodeWriting.length == 0) return {};
+            const episodeNumebrInd_candidates = episodeWriting[0].split(" ").map((d, ind) => [ind, d])
+                .filter(d => isFinite(title2number(remakeString(d[1], "episodeNumber"))))
+            if (episodeNumebrInd_candidates.length == 0) return {};
+            const episodeNumebrInd = Math.min(...episodeNumebrInd_candidates.map(d => d[0]));
             // obtain detail scripts
-            const script_candidates_tmp=$("script[type='text/template']");
-            const script_candidates=[...Array(script_candidates_tmp.length).keys()].map(ind=>script_candidates_tmp[ind]);
-            const scripts=script_candidates.reduce((acc,cand)=>{
+            const script_candidates_tmp = $("script[type='text/template']");
+            const script_candidates = [...Array(script_candidates_tmp.length).keys()].map(ind => script_candidates_tmp[ind]);
+            const scripts = script_candidates.reduce((acc, cand) => {
                 /* if (cand.innerHTML.indexOf(`{"props":{"state":{"features":{"enable`)!=-1){
                     return Object.assign(acc, {enable: JSON.parse(cand.textContent)});
-                } else */ if(cand.innerHTML.indexOf(`{"props":{"state":{"features":{"isElcano`)!=-1) {
-                    return Object.assign(acc, {isElcano:JSON.parse(cand.textContent)})
+                } else */ if (cand.innerHTML.indexOf(`{"props":{"state":{"features":{"isElcano`) != -1) {
+                    return Object.assign(acc, { isElcano: JSON.parse(cand.textContent) })
                 } else return acc;
             }, {});
-            const workId=scripts.isElcano.props.state.pageTitleId;
-            const workIds=scripts.isElcano.props.state.self[workId].asins;
+            const workId = scripts.isElcano.props.state.pageTitleId;
+            const workIds = scripts.isElcano.props.state.self[workId].asins;
             return {
-                site:videoSite,
+                site: videoSite,
                 workTitle: workTitle,
-                episodeTitle: episodeWriting[0].split(" ").slice(episodeNumebrInd+1).join(" "),
-                episodeNumber:episodeWriting[0].split(" ")[episodeNumebrInd],
-                number:title2number(remakeString(episodeWriting[0].split(" ")[episodeNumebrInd], "episodeNumber")),
-                workId:workId,
-                workIds:workIds
+                episodeTitle: episodeWriting[0].split(" ").slice(episodeNumebrInd + 1).join(" "),
+                episodeNumber: episodeWriting[0].split(" ")[episodeNumebrInd],
+                number: title2number(remakeString(episodeWriting[0].split(" ")[episodeNumebrInd], "episodeNumber")),
+                workId: workId,
+                workIds: workIds
             }
-        } else if (videoSite=="netflix"){
-            const titleArea=$(".video-title>div");
-            const workTitle=$("h4", titleArea).text();
-            const episodeWriting=[$("span:eq(1)", titleArea).text()];
+        } else if (videoSite == "netflix") {
+            const titleArea = $(".video-title>div");
+            const workTitle = $("h4", titleArea).text();
+            const episodeWriting = [$("span:eq(1)", titleArea).text()];
             return {
-                site:videoSite,
+                site: videoSite,
                 workTitle: workTitle,
-                episodeTitle: episodeWriting[0].split(" ").slice(episodeNumebrInd+1).join(" "),
-                episodeNumber:episodeWriting[0].split(" ")[episodeNumebrInd],
-                number:title2number(remakeString(episodeWriting[0].split(" ")[episodeNumebrInd], "episodeNumber")),
-                workId:workId,
-                workIds:[]
+                episodeTitle: episodeWriting[0].split(" ").slice(episodeNumebrInd + 1).join(" "),
+                episodeNumber: episodeWriting[0].split(" ")[episodeNumebrInd],
+                number: title2number(remakeString(episodeWriting[0].split(" ")[episodeNumebrInd], "episodeNumber")),
+                workId: workId,
+                workIds: []
             }
-        } else if (videoSite=="abema"){
-            const candidates=$("script[type='application/ld+json']");
-            const jsonData=JAONS.parse(candidates).itemListElement;
-            if (jsonData[1].name!="アニメ") return {}; // require アニメ
-            const workTitle=jsonData[2].name;
-            const episodeWriting=[jsonData[3].name];
-            const episodeNumebrInd_candidates=episodeWriting[0].split(" ").map((d,ind)=>[ind,d])
-            .filter(d=>isFinite(title2number(remakeString(d[1], "episodeNumber"))))
-            if (episodeNumebrInd_candidates.length==0) return {};
-            const episodeNumebrInd=Math.min(...episodeNumebrInd_candidates.map(d=>d[0]));
-            const workId=location.href.match(/(?<=abema\.tv\/video\/episode\/)[^_]+)/)[0];
+        } else if (videoSite == "abema") {
+            const candidates = $("script[type='application/ld+json']");
+            const jsonData = JSON.parse(candidates[1].innerHTML).itemListElement;
+            if (jsonData[1].name != "アニメ") return {}; // require アニメ
+            const workTitle = jsonData[2].name;
+            const episodeWriting = [jsonData[3].name];
+            const episodeNumebrInd_candidates = episodeWriting[0].split(" ").map((d, ind) => [ind, d])
+                .filter(d => isFinite(title2number(remakeString(d[1], "episodeNumber"))))
+            if (episodeNumebrInd_candidates.length == 0) return {};
+            const episodeNumebrInd = Math.min(...episodeNumebrInd_candidates.map(d => d[0]));
+            const workId = location.href.match(/(?<=abema\.tv\/video\/episode\/)[\d-]+/)[0];
             return {
-                site:videoSite,
+                site: videoSite,
                 workTitle: workTitle,
-                episodeTitle: episodeWriting[0].split(" ").slice(episodeNumebrInd+1).join(" "),
-                episodeNumber:episodeWriting[0].split(" ")[episodeNumebrInd],
-                number:title2number(remakeString(episodeWriting[0].split(" ")[episodeNumebrInd], "episodeNumber")),
-                workId:workId,
-                workIds:[]
+                episodeTitle: episodeWriting[0].split(" ").slice(episodeNumebrInd + 1).join(" "),
+                episodeNumber: episodeWriting[0].split(" ")[episodeNumebrInd],
+                number: title2number(remakeString(episodeWriting[0].split(" ")[episodeNumebrInd], "episodeNumber")),
+                workId: workId,
+                workIds: []
             }
-        } 
+        }
         else return {};
     }
     async function sendAnnict(workInfo) {
@@ -229,12 +275,11 @@ window.onload = async function () {
             const splited_episodeNumbers = WatchingEpisode.episodeNumber.split(/～|／/g)
                 .map(d => title2number(remakeString(d, "episodeNumber")));
             const episodeRange = [splited_episodeNumbers[0], splited_episodeNumbers.slice(-1)[0]];
-            //console.log(splited_episodeNumbers, episodeRange)
             const episodeNumbers = [...Array(episodeRange[1] - episodeRange[0] + 1).keys()].map(num => num + episodeRange[0]);
             let workInfos = [];
             for (const episodeNumber of episodeNumbers) {
                 const episodeNow = {
-                    site:WatchingEpisode.site,
+                    site: WatchingEpisode.site,
                     workTitle: WatchingEpisode.workTitle,
                     episodeTitle: "",
                     episodeNumber: `${episodeNumber}`,
@@ -252,7 +297,7 @@ window.onload = async function () {
     async function identifyWork(WatchingEpisode) {
 
         const danime = {
-            site:WatchingEpisode.site,
+            site: WatchingEpisode.site,
             workTitle: WatchingEpisode.workTitle,
             episodeTitle: remakeString(WatchingEpisode.episodeTitle, "title"),
             episodeNumber: remakeString(WatchingEpisode.episodeNumber, "episodeNumber"),
@@ -276,10 +321,10 @@ window.onload = async function () {
 
         const combinedEpisodeNode = [].concat(...goodWorkNodes.map(workNode => {
             if (workNode.episodes.edges.length > 0) {
-                const episodeNodes=workNode.episodes.edges.map(d => d.node);
-                const unitNum=Math.min(...episodeNodes.map(d=>d.sortNumber).filter(d=>d>0));
-                return episodeNodes.map(d=>{
-                    d.sortNumber=d.sortNumber / unitNum;
+                const episodeNodes = workNode.episodes.edges.map(d => d.node);
+                const unitNum = Math.min(...episodeNodes.map(d => d.sortNumber).filter(d => d > 0));
+                return episodeNodes.map(d => {
+                    d.sortNumber = d.sortNumber / unitNum;
                     return d;
                 })
             }
@@ -351,11 +396,11 @@ function checkTitle(titles, mode = "length") {
 
 async function checkTitleWithWorkId(danime, work_nodes) {
     //現状、vod情報はREST APIやgraphQLから取得できない。(存在はしている)
-    const videoSite=danime.site;
-    const vod_dic={danime:241, amazon:243};
+    const videoSite = danime.site;
+    const vod_dic = { danime: 241, amazon: 243, netflix: 244, abema: 260 };
     let good_nodes = [];
     for (const work_node of work_nodes) {
-        const annictId = work_node.annictId
+        const annictId = work_node.annictId;
 
         const db_url = `https://api.annict.com/db/works/${annictId}/programs`;
         const db_html = await fetch(db_url).then(d => d.body)
@@ -367,9 +412,9 @@ async function checkTitleWithWorkId(danime, work_nodes) {
             .filter(d => d[0].indexOf(vod_dic[videoSite]) != -1)
             .map(d => d[1].match(/\S+/));
         if (danime_info.length == 0) continue;
-        //console.log(danime_info[0][0], danime.workIds, danime.workIds.indexOf(danime_info[0][0]))
-        if (danime.site=="danime" && danime_info[0][0]==danime.workId) good_nodes.push(work_node);
-        else if (danime.site=="amazon" && danime.workIds.indexOf(danime_info[0][0])!=-1) good_nodes.push(work_node);
+        console.log(annictId, danime_info, danime.workIds, danime.workIds.indexOf(danime_info[0][0]))
+        if (["danime", "abema", "netflix"].indexOf(danime.site)!=-1 && danime_info[0][0] == danime.workId) good_nodes.push(work_node);
+        else if (danime.site == "amazon" && danime.workIds.indexOf(danime_info[0][0]) != -1) good_nodes.push(work_node);
     }
     return good_nodes;
 }
@@ -398,8 +443,8 @@ async function post2webhook(args_dict) {
     const origPostData = {
         workTitle: danime.workTitle, episodeNumber: danime.episodeNumber,
         episodeTitle: danime.episodeTitle,
-        danimeWorkId: danime.workId, 
-        site:danime.site, error: args_dict.error
+        danimeWorkId: danime.workId,
+        site: danime.site, error: args_dict.error
     };
     const webhookMatchingObj = {
         "noWorkMatched": "webhookNoMatched", "noEpisodeMatched": "webhookNoMatched",
