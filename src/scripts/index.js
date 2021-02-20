@@ -213,7 +213,7 @@ function obtainWatching(videoSite) {
             scripts.isElcano.props.state.detail.headerDetail[workId]);
         //console.log(detailData)
         const genres = detailData.genres.map(d=>d.text);
-        if (genres.indexOf("アニメ")) return {};
+        if (genres.indexOf("アニメ")!=-1) return {};
 
         // obtain episode numbers
         const candidates_tmp = $("h2");
