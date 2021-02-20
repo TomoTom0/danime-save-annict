@@ -1,7 +1,6 @@
 
 
 const GLOBAL_sep = /\s+|;|・|\(|（|\)|）|～|‐|-|―|－|&|＆|#|＃|映画\s*|劇場版\s*|!|！|\?|？|…|『|』|「|」|∬/g;
-let dsaDialog;
 
 // webhook default settings
 const webhookDefaultSetting = {
@@ -17,378 +16,351 @@ const inputObj = Object.assign({
     withTwitter: false, withFacebook: false, webhookSettings: webhookDefaultString
 }, checkValid);
 
-let GLOBAL_storage = {};
-let GLOBAL_access_token = "";
-
-function showMessage(message, dialog = dsaDialog) {
+function showMessage(message, dialog_in) {
+    const dialog = (dialog_in) ? dialog_in : $(".dsa-dialog");
     dialog.text(message);
-    dialog.hide().fadeIn('slow', () =>
+    dialog.hide().fadeIn("slow", () =>
         setTimeout(() => {
-            dialog.fadeOut('slow')
+            dialog.fadeOut("slow")
         }, 5000)
     )
 }
 
-$(function () {
+$(async function () {
     $("<style>", { type: 'text/css' })
         .append(".dsa-dialog { position: fixed;  bottom: 60px;  right: 10px; border: 1px solid #888888;  padding: 2pt;  background-color: #ffffff;  filter: alpha(opacity=85);  -moz-opacity: 0.85;  -khtml-opacity: 0.85;  opacity: 0.85;      text-shadow: 0 -1px 1px #FFF, -1px 0 1px #FFF, 1px 0 1px #aaa;  -webkit-box-shadow: 1px 1px 2px #eeeeee;  -moz-box-shadow: 1px 1px 2px #eeeeee;  -webkit-border-radius: 3px;  -moz-border-radius: 3px; display: none;}")
         .appendTo("head");
-    $("<div>").addClass("dsa-dialog").text("Message").appendTo("body");
-    dsaDialog = $(".dsa-dialog");
+    $("<div>", { class: "dsa-dialog" }).text("Message").appendTo("body");
 
-    chrome.storage.sync.get(inputObj, items => {
-        GLOBAL_storage = items;
-        GLOBAL_access_token = GLOBAL_storage.token;
-        if (GLOBAL_access_token == "") showMessage("There is no access token of `Annict`.");
-        if (GLOBAL_storage.sendingTime - 0 < 0) GLOBAL_storage.sendingTime = 300;
-        if (Object.keys(GLOBAL_storage).indexOf("annictSend") == -1) GLOBAL_storage.annictSend = true;
+    chrome.storage.sync.get({ token: "" }, items => {
+        if (items.token == "") showMessage("There is no access token of `Annict`.");
     })
+
+
+    const functionForInterval = async function(WatchingEpisodeLast) {
+        const videoSite = Object.entries({
+            danime: "https://anime.dmkt-sp.jp/animestore/sc_d_pc?partId", // for danime
+            amazon: "https://www.amazon.co.jp/gp/video/detail/", // for Amazon Prime
+            amazon_: "https://www.amazon.co.jp/dp/", // for Amazon Prime 2
+            netflix: "https://www.netflix.com/episode/", // for Netflix
+            abema: "https://abema.tv/video/" // for abemaTV
+        }).filter(kv => location.href.indexOf(kv[1]) != -1).map(kv => kv[0])[0].replace(/_*$/, "");
+        const WatchingEpisodeNow = JSON.stringify(obtainWatching(videoSite));
+        //console.log(WatchingEpisodeNow, videoSite)
+    
+        async function mainFunc(videoSite, video){
+            let RecordWillBeSent=true;
+            await videoTriggered("start", videoSite).then(d => {
+                WorkInfo = d;
+                RecordWillBeSent = false;
+            })
+            video.addEventListener("ended", async () => { // video ended
+                await videoTriggered("end", videoSite, RecordWillBeSent, workInfo)
+            })
+        }
+    
+        if (WatchingEpisodeNow != WatchingEpisodeLast) {
+            //console.log(WatchingEpisodeNow);
+            const video = obtainVideoElement(videoSite);
+            // video要素がないなら最初から
+            if (video == null) return WatchingEpisodeLast; 
+            // amazon prime videoは一覧ページで既に「続きのエピソード」のvideoなどが用意されているので、実際の再生まで待機
+            //console.log(video.webkitDecodedFrameCount)
+            if (videoSite=="amazon"){
+                video.addEventListener("play", async ()=>{
+                    firstSent =true;
+                    await mainFunc(videoSite, video);
+                }, {once:true}) // onceがないと増殖する()
+            } 
+            // danime, abemaは作品内容が変化していればよし
+            // また、abemaは一覧からエピソードを再生した場合、playやplayingを取得できないので、
+            // videoの挙動とは無関係に進める形に
+            else await mainFunc(videoSite, video);
+        } return WatchingEpisodeNow;
+    }
+
+    const interval= async (WatchingEpisodeLast="{}")=>{
+        await functionForInterval(WatchingEpisodeLast)
+        .then(WatchingEpisodeLast=>{
+            setTimeout(interval, 2*1000, WatchingEpisodeLast)
+        });
+    }
+    await interval("{}")
 })
 
 
-window.onload = async function () {
-    const videoSite = Object.entries({
-        danime: "https://anime.dmkt-sp.jp/animestore/sc_d_pc?partId", // for danime
-        amazon: "https://www.amazon.co.jp/gp/video/detail/", // for Amazon Prime
-        amazon_: "https://www.amazon.co.jp/dp/", // for Amazon Prime
-        netflix: "https://www.netflix.com/episode/", // for Netflix
-        abema: "https://abema.tv/video/episode/"
-    })  // for abemaTV
-        .filter(kv => location.href.indexOf(kv[1]) != -1).map(kv => kv[0])[0].replace(/_*$/, "");
 
-    const videoTrigger_dic = { danime: "loadstart", amazon: "play", abema: "play", netflix: "play" }
-    const obtainVideoElement = (site) => {
-        if (site == "danime") return $("#video")[0];
-        else if (site == "amazon") return $("video[width='100%']")[0];
-        else if (site == "netflix") return $("video")[0];
-        else if (site == "abema") return $("video[preload='metadata']")[0];
-    }
-    await loadMain(videoSite, videoTrigger_dic[videoSite]);
 
-    //movie changes wihtout url moving
-    if (["amazon", "abema"].indexOf(videoSite) != -1) {
-        WatchingEpisodeLast = JSON.stringify(obtainWatching(videoSite));
-        setInterval(async function () {
-            WatchingEpisodeNow = JSON.stringify(obtainWatching(videoSite));
-            if (WatchingEpisodeNow != WatchingEpisodeLast) {
-                WatchingEpisodeLast = WatchingEpisodeNow;
-                console.log(WatchingEpisodeNow);
-                video = obtainVideoElement(videoSite);
-                await videoTriggered("start").then(d => {
-                    WorkInfo = d[0];
+
+// --------- functions for main ---------
+const obtainVideoElement = (site) => {
+    if (site == "danime") return $("#video")[0];
+    else if (site == "amazon") return $("video[width='100%']")[0];
+    else if (site == "netflix") return $("video")[0];
+    else if (site == "abema") return $("video[preload='metadata']")[0];
+}
+/*async function loadMain(videoSite, trigger) {
+    let RecordWillBeSent = true;
+    let workInfo = {};
+
+    console.log(videoSite)
+    chrome.storage.sync.get(checkValid, items => {
+        if (!items[`valid_${videoSite}`]) return;
+    })
+
+    const videoSearching = setInterval(function () {
+        const video = obtainVideoElement(videoSite);
+        console.log(video)
+        if (video != null) {
+            clearInterval(videoSearching);
+            video.addEventListener(trigger, async function () {
+                await videoTriggered("start", videoSite, true).then(d => {
+                    workInfo = d[0];
                     RecordWillBeSent = d[1];
                 })
-                video.addEventListener("ended", async () => { // video ended
-                    await videoTriggered("end", RecordWillBeSent, workInfo)
-                })
-            } else WatchingEpisodeLast = WatchingEpisodeNow;
-        }, 1000 * 2)
-    }
+            }, { once: true });
 
-    async function videoTriggered(flag, RecordWillBeSent = true, workInfo = {}) {
-        console.log("start");
-        const WatchingEpisode = obtainWatching(videoSite);
-        console.log(WatchingEpisode);
-        if (flag == "start") {
-            RecordWillBeSent = true;
-            await obtainWork(WatchingEpisode).then(async workInfo => {
+            video.addEventListener("ended", async () => { // video ended
+                await videoTriggered("end", videoSite, RecordWillBeSent, workInfo);
+            });
+        }
+    }, 1000)
+}*/
+
+
+
+async function videoTriggered(flag, videoSite, RecordWillBeSent = true, workInfo = {}) {
+    console.log("start");
+    const WatchingEpisode = obtainWatching(videoSite);
+    console.log(WatchingEpisode);
+    if (flag == "start") {
+        //RecordWillBeSent = true;
+        chrome.storage.sync.get({ token: "", sendingTime: 300 }, async items => {
+            if (items.token == "") return;
+            const sendingTime = (items.sendingTime - 0 > 0) ? items.sendingTime : 300;
+
+            await obtainWork(WatchingEpisode, items.token).then(async workInfo => {
                 console.log(workInfo);
                 if (workInfo == {} || workInfo.nodes == []) {
                     const error_message = `No Hit Title: ${workInfo.danime.workTitle}`;
-                    if (GLOBAL_access_token) showMessage(error_message);
+                    showMessage(error_message);
                     await post2webhook(workInfo.webhook);
                 }
                 setTimeout(async () => { // in 5 min until video started
                     if (workInfo != {} && workInfo.nodes != []) {
                         await sendRecord(workInfo, WatchingEpisode, RecordWillBeSent);
                     }
-                    RecordWillBeSent = false;
+                    //RecordWillBeSent = false;
                     chrome.storage.sync.set({ lastWatched: JSON.stringify(WatchingEpisode), lastVideoOver: false });
-                }, GLOBAL_storage.sendingTime * 1000);
+                }, sendingTime * 1000);
             })
-        } else if (flag == "end") {
-            if (workInfo != {} && workInfo.nodes != []) {
-                await sendRecord(workInfo, WatchingEpisode, RecordWillBeSent);
-            }
-            chrome.storage.sync.set({ lastWatched: JSON.stringify(WatchingEpisode), lastVideoOver: true });
-            // 最後まで見た場合, lastVideoOver=trueで把握
-        }
-        return workInfo, RecordWillBeSent;
-    }
-    async function loadMain(videoSite, videoTrigger) {
-        let RecordWillBeSent = true;
-        let workInfo = {};
-
-        console.log(videoSite)
-        chrome.storage.sync.get(checkValid, items => {
-            if (!items[`valid_${videoSite}`]) return;
         })
 
-        let video;
-        const videoSearching = setInterval(function () {
-            video = obtainVideoElement(videoSite);
-            //console.log(video)
-            if (video != null) {
-                console.log(2)
-                clearInterval(videoSearching);
-
-                video.addEventListener(videoTrigger, async function () {
-                    await videoTriggered("start", true).then(d => {
-                        workInfo = d[0];
-                        RecordWillBeSent = d[1];
-                    })
-                }, { once: true });
-
-                video.addEventListener("ended", async () => { // video ended
-                    await videoTriggered("end", RecordWillBeSent, workInfo);
-                });
-            }
-        }, 1000)
-
-    }
-
-    async function sendRecord(workInfo, WatchingEpisode, RecordWillBeSent = true) {
-        if (!RecordWillBeSent || workInfo == {} || workInfo.nodes == []) return;
-        chrome.storage.sync.get({ lastWatched: JSON.stringify({}), lastVideoOver: false }, async item => {
-            const lastWatched = JSON.parse(item.lastWatched);
-            const IsSuspended = (WatchingEpisode == lastWatched) && !item.lastVideoOver;
-            const IsSameMovie = (workInfo.nodes.some(d => d.media == "MOVIE")) && (lastWatched.workTitle == WatchingEpisode.workTitle);
-            const IsSplitedEpisode = Object.entries({ workTitle: true, episodeTitle: true, episodeNumber: false, number: true })
-                .every(kv => kv[1] == (lastWatched[kv[0]] == WatchingEpisode[kv[0]]));
-            //console.log({ RecordWillBeSent, IsSuspended, IsSameMovie, IsSplitedEpisode })
-            if (!IsSuspended || !IsSameMovie || !IsSplitedEpisode) {
-                await post2webhook(workInfo.webhook);
-                await sendAnnict(workInfo);
-            }
-        })
-    }
-    function obtainWatching(videoSite = "danime") {
-        if (videoSite == "danime") {
-            return {
-                site: videoSite,
-                workTitle: $(".backInfoTxt1").text(),
-                episodeTitle: $(".backInfoTxt3").text(),
-                episodeNumber: $(".backInfoTxt2").text(),
-                number: title2number(remakeString($(".backInfoTxt2").text(), "episodeNumber")),
-                workId: location.href.match(/(?<=partId=)\d{5}/)[0],
-                workIds: []
-            };
-        } else if (videoSite == "amazon") {
-            const workTitle = $("h1[data-automation-id='title']").text();
-            // obtain episode numbers
-            const candidates_tmp = $("h2");
-            const candidates = [...Array(candidates_tmp.length).keys()].map(ind => candidates_tmp[ind]);
-            const seasonAndEpisode = candidates.reduce((acc, cand) => {
-                if (Array.from(cand.classList).join(" ").indexOf("subtitle") != -1) {
-                    return acc.concat([cand.textContent]);
-                } else return acc;
-            }, []);
-            if (seasonAndEpisode.length != 1) return {};
-            const episodeWriting = seasonAndEpisode[0].match(/(?<=シーズン\d+、エピソード\d+\s).*/);
-            if (episodeWriting.length == 0) return {};
-            const episodeNumebrInd_candidates = episodeWriting[0].split(" ").map((d, ind) => [ind, d])
-                .filter(d => isFinite(title2number(remakeString(d[1], "episodeNumber"))))
-            if (episodeNumebrInd_candidates.length == 0) return {};
-            const episodeNumebrInd = Math.min(...episodeNumebrInd_candidates.map(d => d[0]));
-            // obtain detail scripts
-            const script_candidates_tmp = $("script[type='text/template']");
-            const script_candidates = [...Array(script_candidates_tmp.length).keys()].map(ind => script_candidates_tmp[ind]);
-            const scripts = script_candidates.reduce((acc, cand) => {
-                /* if (cand.innerHTML.indexOf(`{"props":{"state":{"features":{"enable`)!=-1){
-                    return Object.assign(acc, {enable: JSON.parse(cand.textContent)});
-                } else */ if (cand.innerHTML.indexOf(`{"props":{"state":{"features":{"isElcano`) != -1) {
-                    return Object.assign(acc, { isElcano: JSON.parse(cand.textContent) })
-                } else return acc;
-            }, {});
-            const workId = scripts.isElcano.props.state.pageTitleId;
-            const workIds = scripts.isElcano.props.state.self[workId].asins;
-            return {
-                site: videoSite,
-                workTitle: workTitle,
-                episodeTitle: episodeWriting[0].split(" ").slice(episodeNumebrInd + 1).join(" "),
-                episodeNumber: episodeWriting[0].split(" ")[episodeNumebrInd],
-                number: title2number(remakeString(episodeWriting[0].split(" ")[episodeNumebrInd], "episodeNumber")),
-                workId: workId,
-                workIds: workIds
-            }
-        } else if (videoSite == "netflix") {
-            const titleArea = $(".video-title>div");
-            const workTitle = $("h4", titleArea).text();
-            const episodeWriting = [$("span:eq(1)", titleArea).text()];
-            return {
-                site: videoSite,
-                workTitle: workTitle,
-                episodeTitle: episodeWriting[0].split(" ").slice(episodeNumebrInd + 1).join(" "),
-                episodeNumber: episodeWriting[0].split(" ")[episodeNumebrInd],
-                number: title2number(remakeString(episodeWriting[0].split(" ")[episodeNumebrInd], "episodeNumber")),
-                workId: workId,
-                workIds: []
-            }
-        } else if (videoSite == "abema") {
-            const candidates = $("script[type='application/ld+json']");
-            const jsonData = JSON.parse(candidates[1].innerHTML).itemListElement;
-            if (jsonData[1].name != "アニメ") return {}; // require アニメ
-            const workTitle = jsonData[2].name;
-            const episodeWriting = [jsonData[3].name];
-            const episodeNumebrInd_candidates = episodeWriting[0].split(" ").map((d, ind) => [ind, d])
-                .filter(d => isFinite(title2number(remakeString(d[1], "episodeNumber"))))
-            if (episodeNumebrInd_candidates.length == 0) return {};
-            const episodeNumebrInd = Math.min(...episodeNumebrInd_candidates.map(d => d[0]));
-            const workId = location.href.match(/(?<=abema\.tv\/video\/episode\/)[\d-]+/)[0];
-            return {
-                site: videoSite,
-                workTitle: workTitle,
-                episodeTitle: episodeWriting[0].split(" ").slice(episodeNumebrInd + 1).join(" "),
-                episodeNumber: episodeWriting[0].split(" ")[episodeNumebrInd],
-                number: title2number(remakeString(episodeWriting[0].split(" ")[episodeNumebrInd], "episodeNumber")),
-                workId: workId,
-                workIds: []
-            }
+    } else if (flag == "end") {
+        if (workInfo != {} && workInfo.nodes != []) {
+            await sendRecord(workInfo, WatchingEpisode, RecordWillBeSent);
         }
-        else return {};
+        chrome.storage.sync.set({ lastWatched: JSON.stringify(WatchingEpisode), lastVideoOver: true });
+        // 最後まで見た場合, lastVideoOver=trueで把握
     }
-    async function sendAnnict(workInfo) {
-        if (GLOBAL_storage.annictSend) {
-            console.log("sending to Annict");
-            const danime = workInfo.danime;
-            let statuses = [];
-            for (const node of workInfo.nodes) {
-                statuses.push(await post2annict(node));
-            }
-            const result_message = `${danime.workTitle} ${danime.episodeNumber} Annict sending ${statuses.every(d => d) ? 'successed' : 'failed'}.`;
-            console.log(result_message);
-            showMessage(result_message);
-        }
-    }
+    return workInfo;
+}
 
-    async function obtainWork(WatchingEpisode) {
-        const IsCombinedEpisode = (/～|／/.test(WatchingEpisode.episodeNumber) &&
-            WatchingEpisode.episodeNumber.split(/～|／/g).every(d => title2number(remakeString(d, "episodeNumber"))) != null);
-        if (!IsCombinedEpisode) {
-            return await identifyWork(WatchingEpisode);
-        }
-        else {
-            const splited_episodeNumbers = WatchingEpisode.episodeNumber.split(/～|／/g)
-                .map(d => title2number(remakeString(d, "episodeNumber")));
-            const episodeRange = [splited_episodeNumbers[0], splited_episodeNumbers.slice(-1)[0]];
-            const episodeNumbers = [...Array(episodeRange[1] - episodeRange[0] + 1).keys()].map(num => num + episodeRange[0]);
-            let workInfos = [];
-            for (const episodeNumber of episodeNumbers) {
-                const episodeNow = {
-                    site: WatchingEpisode.site,
-                    workTitle: WatchingEpisode.workTitle,
-                    episodeTitle: "",
-                    episodeNumber: `${episodeNumber}`,
-                    number: episodeNumber,
-                    workId: WatchingEpisode.workId,
-                    workIds: WatchingEpisode.workIds
-                }
-                const workInfoTmp = await identifyWork(episodeNow);
-                if (workInfoTmp != {}) workInfos.push(workInfoTmp);
-            }
-            const errorMessage = Array.from(new Set(workInfos.map(d => d.webhook.error))).sort().join(" ");
-            return { webhook: { danime: WatchingEpisode, error: errorMessage }, nodes: [].concat(...workInfos.map(d => d.nodes)) };
-        }
-    }
-    async function identifyWork(WatchingEpisode) {
 
-        const danime = {
-            site: WatchingEpisode.site,
-            workTitle: WatchingEpisode.workTitle,
-            episodeTitle: remakeString(WatchingEpisode.episodeTitle, "title"),
-            episodeNumber: remakeString(WatchingEpisode.episodeNumber, "episodeNumber"),
-            number: WatchingEpisode.number,
-            splitedTitle: WatchingEpisode.workTitle.split(GLOBAL_sep).filter(d => !/^\s*$/.test(d)),
-            workId: WatchingEpisode.workId,
-            workIds: WatchingEpisode.workIds
+async function sendRecord(workInfo, WatchingEpisode, RecordWillBeSent = true) {
+    if (!RecordWillBeSent || workInfo == {} || workInfo.nodes == []) return;
+    chrome.storage.sync.get(Object.assign({lastWatched: JSON.stringify({}), lastVideoOver: true}, inputObj) , async items => {
+        const lastWatched = JSON.parse(items.lastWatched);
+        const IsSuspended = (WatchingEpisode == lastWatched) && !items.lastVideoOver;
+        const IsSameMovie = (workInfo.nodes.some(d => d.media == "MOVIE")) && (lastWatched.workTitle == WatchingEpisode.workTitle);
+        const IsSplitedEpisode = Object.entries({ workTitle: true, episodeTitle: true, episodeNumber: false, number: true })
+            .every(kv => kv[1] == (lastWatched[kv[0]] == WatchingEpisode[kv[0]]));
+        //console.log({ RecordWillBeSent, IsSuspended, IsSameMovie, IsSplitedEpisode })
+        if (!IsSuspended || !IsSameMovie || !IsSplitedEpisode) {
+            await post2webhook(workInfo.webhook, items.webhookSettings);
+            await sendAnnict(workInfo, items);
+        }
+    })
+}
+
+function obtainWatching(videoSite) {
+    if (videoSite == "danime") {
+        return {
+            site: videoSite,
+            workTitle: $(".backInfoTxt1").text(),
+            episodeTitle: $(".backInfoTxt3").text(),
+            episodeNumber: $(".backInfoTxt2").text(),
+            number: title2number(remakeString($(".backInfoTxt2").text(), "episodeNumber")),
+            workId: location.href.match(/(?<=partId=)\d{5}/)[0],
+            workIds: []
         };
-        // Annict TokenがなくてもWebhookは実行できるように変更
-        if (!GLOBAL_access_token) return { danime: danime, nodes: [], webhook: { danime: danime, error: "noAnnictToken" } };
-        const result_nodes = await fetchWork(danime.splitedTitle[0])
-            .then(d => d.map(dd => dd.node));
-        //console.log(result_nodes)
-        if (result_nodes.length == 0) {
-            return { danime: danime, nodes: [], webhook: { danime: danime, error: "noWorkMatched" } }
+    } else if (videoSite == "amazon") {
+        const workTitle = $("h1[data-automation-id='title']").text();
+        // obtain episode numbers
+        const candidates_tmp = $("h2");
+        const candidates = [...Array(candidates_tmp.length).keys()].map(ind => candidates_tmp[ind]);
+        const seasonAndEpisode = candidates.reduce((acc, cand) => {
+            if (Array.from(cand.classList).join(" ").indexOf("subtitle") != -1) {
+                return acc.concat([cand.textContent]);
+            } else return acc;
+        }, []);
+        if (seasonAndEpisode.length != 1) return {};
+        const episodeWriting = seasonAndEpisode[0].match(/(?<=シーズン\d+、エピソード\d+\s).*/);
+        if (episodeWriting==null || episodeWriting.length == 0) return {};
+        const episodeNumebrInd_candidates = episodeWriting[0].split(" ").map((d, ind) => [ind, d])
+            .filter(d => isFinite(title2number(remakeString(d[1], "episodeNumber"))))
+        if (episodeNumebrInd_candidates.length == 0) return {};
+        const episodeNumebrInd = Math.min(...episodeNumebrInd_candidates.map(d => d[0]));
+        // obtain detail scripts
+        const script_candidates_tmp = $("script[type='text/template']");
+        const script_candidates = [...Array(script_candidates_tmp.length).keys()].map(ind => script_candidates_tmp[ind]);
+        const scripts = script_candidates.reduce((acc, cand) => {
+            /* if (cand.innerHTML.indexOf(`{"props":{"state":{"features":{"enable`)!=-1){
+                return Object.assign(acc, {enable: JSON.parse(cand.textContent)});
+            } else */ if (cand.innerHTML.indexOf(`{"props":{"state":{"features":{"isElcano`) != -1) {
+                return Object.assign(acc, { isElcano: JSON.parse(cand.textContent) })
+            } else return acc;
+        }, {});
+        const workId = scripts.isElcano.props.state.pageTitleId;
+        const workIds = scripts.isElcano.props.state.self[workId].asins;
+        return {
+            site: videoSite,
+            workTitle: workTitle,
+            episodeTitle: episodeWriting[0].split(" ").slice(episodeNumebrInd + 1).join(" "),
+            episodeNumber: episodeWriting[0].split(" ")[episodeNumebrInd],
+            number: title2number(remakeString(episodeWriting[0].split(" ")[episodeNumebrInd], "episodeNumber")),
+            workId: workId,
+            workIds: workIds
         }
-        let goodWorkNodes = await checkTitleWithWorkId(danime, result_nodes);
-        const workIdIsFound = (goodWorkNodes.length != 0);
-        if (!workIdIsFound) goodWorkNodes = result_nodes;
-        console.log("Work Candidates:\n", goodWorkNodes);
+    } else if (videoSite == "netflix") {
+        const titleArea = $(".video-title>div");
+        const workTitle = $("h4", titleArea).text();
+        const episodeWriting = [$("span:eq(1)", titleArea).text()];
+        return {
+            site: videoSite,
+            workTitle: workTitle,
+            episodeTitle: episodeWriting[0].split(" ").slice(episodeNumebrInd + 1).join(" "),
+            episodeNumber: episodeWriting[0].split(" ")[episodeNumebrInd],
+            number: title2number(remakeString(episodeWriting[0].split(" ")[episodeNumebrInd], "episodeNumber")),
+            workId: workId,
+            workIds: []
+        }
+    } else if (videoSite == "abema") {
+        const candidates = $("script[type='application/ld+json']");
+        const jsonData = JSON.parse(candidates[candidates.length - 1].innerHTML).itemListElement;
+        //console.log(jsonData)
+        if (!jsonData || jsonData.length < 4 || jsonData[1].name != "アニメ") return {}; // require アニメ
+        const workTitle = jsonData[2].name;
+        const episodeWriting = [jsonData[3].name];
+        const episodeNumebrInd_candidates = episodeWriting[0].split(" ").map((d, ind) => [ind, d])
+            .filter(d => isFinite(title2number(remakeString(d[1], "episodeNumber"))))
+        if (episodeNumebrInd_candidates.length == 0) return {};
+        const episodeNumebrInd = Math.min(...episodeNumebrInd_candidates.map(d => d[0]));
+        const workId = location.href.match(/(?<=abema\.tv\/video\/episode\/)[^_]+/)[0];
+        return {
+            site: videoSite,
+            workTitle: workTitle,
+            episodeTitle: episodeWriting[0].split(" ").slice(episodeNumebrInd + 1).join(" "),
+            episodeNumber: episodeWriting[0].split(" ")[episodeNumebrInd],
+            number: title2number(remakeString(episodeWriting[0].split(" ")[episodeNumebrInd], "episodeNumber")),
+            workId: workId,
+            workIds: []
+        }
+    }
+    else return {};
+}
 
-        const combinedEpisodeNode = [].concat(...goodWorkNodes.map(workNode => {
-            if (workNode.episodes.edges.length > 0) {
-                const episodeNodes = workNode.episodes.edges.map(d => d.node);
-                const unitNum = Math.min(...episodeNodes.map(d => d.sortNumber).filter(d => d > 0));
-                return episodeNodes.map(d => {
-                    d.sortNumber = d.sortNumber / unitNum;
-                    return d;
-                })
+// -------------- find work -----------------
+
+async function obtainWork(WatchingEpisode, annictToken) {
+    const IsCombinedEpisode = (/～|／/.test(WatchingEpisode.episodeNumber) &&
+        WatchingEpisode.episodeNumber.split(/～|／/g).every(d => title2number(remakeString(d, "episodeNumber"))) != null);
+    if (!IsCombinedEpisode) {
+        return await identifyWork(WatchingEpisode, annictToken);
+    } else {
+        const splited_episodeNumbers = WatchingEpisode.episodeNumber.split(/～|／/g)
+            .map(d => title2number(remakeString(d, "episodeNumber")));
+        const episodeRange = [splited_episodeNumbers[0], splited_episodeNumbers.slice(-1)[0]];
+        const episodeNumbers = [...Array(episodeRange[1] - episodeRange[0] + 1).keys()].map(num => num + episodeRange[0]);
+        let workInfos = [];
+        for (const episodeNumber of episodeNumbers) {
+            const episodeNow = {
+                site: WatchingEpisode.site,
+                workTitle: WatchingEpisode.workTitle,
+                episodeTitle: "",
+                episodeNumber: `${episodeNumber}`,
+                number: episodeNumber,
+                workId: WatchingEpisode.workId,
+                workIds: WatchingEpisode.workIds
             }
-            else return { title: workNode.title, number: "", annictId: workNode.annictId, media: workNode.media, IsZeroEpisode: true }; // only 0 episode
-        }));
-        const episodes_numberAndCheck = combinedEpisodeNode.map(episode_node =>
-            [workIdIsFound,
-                checkTitle([danime.episodeTitle, episode_node.title], "every"),
-                (episode_node.number || episode_node.sortNumber) == danime.number]);
-        const episodes_judges = episodes_numberAndCheck.map(d =>
-            [d[0] && d[1] && d[2], // workId is found and episode title & number corresponds
-            d[0] && d[1], // workId is found and episode title corresponds
-            d[0] && d[2], // workId is found and episode number corresponds
-            d[1] && d[2], // episode title and number corresponds
-            d[1], // episode title corresponds
-            d[2]]); // episode number corresponds
-        const judge_kinds = episodes_judges[0].length;
-        const valid_check_methods = [...Array(judge_kinds).keys()].filter(num => episodes_judges.filter(d => d[num]).length > 0);
-        //console.log(danime, combinedEpisodeNode, episodes_numberAndCheck)
-        const error_messages = [[valid_check_methods.length == 0, "noEpisodeMatched"], [!workIdIsFound, "noWorkId"]]
-            .filter(d => d[0]).map(d => d[1]).join(" ") || "none";
-        if (valid_check_methods.length > 0) {
-            const episode_node = episodes_judges.map((d, ind) => [d[valid_check_methods[0]], combinedEpisodeNode[ind]])
-                .filter(d => d[0]).map(d => d[1])[0];
-            const webhookContent = (error_messages.length > 0) ?  // error or workId未登録の場合に指定したURLにwebhookを送信
-                { danime: danime, error: error_messages } :
-                { danime: danime, error: "" };
-            return { danime: danime, nodes: [episode_node], webhook: webhookContent };
-        } else {
-            return {
-                danime: danime, nodes: [],
-                webhook: { danime: danime, error: error_messages }
-            };
+            const workInfoTmp = await identifyWork(episodeNow, annictToken);
+            if (workInfoTmp != {}) workInfos.push(workInfoTmp);
         }
+        const errorMessage = Array.from(new Set(workInfos.map(d => d.webhook.error))).sort().join(" ");
+        return { webhook: { danime: WatchingEpisode, error: errorMessage }, nodes: [].concat(...workInfos.map(d => d.nodes)) };
     }
 }
 
-//------------------ functions -------------------
-
-function remakeString(input_str, mode = "title") {
-    const delete_array = ["「", "」", "『", "』", "｢", "｣"];
-    const remake_dic = {
-        "〈": "＜", "〉": "＞",
-        "Ⅰ": "I", "Ⅱ": "II", "Ⅲ": "III", "Ⅳ": "IV", "Ⅴ": "V", "Ⅵ": "VI", "Ⅶ": "VII", "Ⅷ": "VIII", "Ⅸ": "IX", "Ⅹ": "X"
+async function identifyWork(WatchingEpisode, annictToken) {
+    const danime = {
+        site: WatchingEpisode.site,
+        workTitle: WatchingEpisode.workTitle,
+        episodeTitle: remakeString(WatchingEpisode.episodeTitle, "title"),
+        episodeNumber: remakeString(WatchingEpisode.episodeNumber, "episodeNumber"),
+        number: WatchingEpisode.number,
+        splitedTitle: WatchingEpisode.workTitle.split(GLOBAL_sep).filter(d => !/^\s*$/.test(d)),
+        workId: WatchingEpisode.workId,
+        workIds: WatchingEpisode.workIds
     };
-    if (mode == "episodeNumber") {
-        return kanji2arab(input_str).replace(/[０-９]/g, s => // 全角=>半角
-            String.fromCharCode(s.charCodeAt(0) - 65248));
-    } else if (mode == "title") {
-        return input_str.replace(/[Ａ-Ｚａ-ｚ０-９：]/g, s => // 全角=>半角
-            String.fromCharCode(s.charCodeAt(0) - 65248))
-            .replace(new RegExp(delete_array.join("|"), "g"), "")
-            .replace(new RegExp(Object.keys(remake_dic).join("|"), "g"), match => remake_dic[match]);
+    const result_nodes = await fetchWork(danime.splitedTitle[0], annictToken);
+    //console.log(result_nodes)
+    if (result_nodes.length == 0) {
+        return { danime: danime, nodes: [], webhook: { danime: danime, error: "noWorkMatched" } }
+    }
+    let goodWorkNodes = await checkTitleWithWorkId(danime, result_nodes);
+    const workIdIsFound = (goodWorkNodes.length != 0);
+    if (!workIdIsFound) goodWorkNodes = result_nodes;
+    console.log("Work Candidates:\n", goodWorkNodes);
+
+    const combinedEpisodeNode = [].concat(...goodWorkNodes.map(workNode => {
+        if (workNode.episodes.edges.length > 0) {
+            const episodeNodes = workNode.episodes.edges.map(d => d.node);
+            const unitNum = Math.min(...episodeNodes.map(d => d.sortNumber).filter(d => d > 0));
+            return episodeNodes.map(d => {
+                d.sortNumber = d.sortNumber / unitNum;
+                return d;
+            })
+        }
+        else return { title: workNode.title, number: "", annictId: workNode.annictId, media: workNode.media, IsZeroEpisode: true }; // only 0 episode
+    }));
+    const episodes_numberAndCheck = combinedEpisodeNode.map(episode_node =>
+        [workIdIsFound,
+            checkTitle([danime.episodeTitle, episode_node.title], "every"),
+            (episode_node.number || episode_node.sortNumber) == danime.number]);
+    const episodes_judges = episodes_numberAndCheck.map(d =>
+        [d[0] && d[1] && d[2], // workId is found and episode title & number corresponds
+        d[0] && d[1], // workId is found and episode title corresponds
+        d[0] && d[2], // workId is found and episode number corresponds
+        d[1] && d[2], // episode title and number corresponds
+        d[1], // episode title corresponds
+        d[2]]); // episode number corresponds
+    const judge_kinds = episodes_judges[0].length;
+    const valid_check_methods = [...Array(judge_kinds).keys()].filter(num => episodes_judges.filter(d => d[num]).length > 0);
+    //console.log(danime, combinedEpisodeNode, episodes_numberAndCheck)
+    const error_messages = [[valid_check_methods.length == 0, "noEpisodeMatched"], [!workIdIsFound, "noWorkId"]]
+        .filter(d => d[0]).map(d => d[1]).join(" ") || "none";
+    if (valid_check_methods.length > 0) {
+        const episode_node = episodes_judges.map((d, ind) => [d[valid_check_methods[0]], combinedEpisodeNode[ind]])
+            .filter(d => d[0]).map(d => d[1])[0];
+        const webhookContent = { danime: danime, error: error_messages };
+        return { danime: danime, nodes: [episode_node], webhook: webhookContent };
+    } else {
+        return {
+            danime: danime, nodes: [],
+            webhook: { danime: danime, error: error_messages }
+        };
     }
 }
-function title2number(str) {
-    if (!str) return "";
-    const str2 = str.match(/\d+/);
-    return parseInt(str2, 10);
-}
-
-function checkTitle(titles, mode = "length") {
-    if (titles.some(d => !d)) return false;
-    const titles_splited = titles.map(d => remakeString(d, "title").split(GLOBAL_sep).filter(d => !/^\s*$/.test(d)));
-    if (mode == "length") return titles_splited[0].filter(d => titles_splited[1].join("").indexOf(d) != -1).length;
-    else if (mode == "every") return titles_splited[0].every(d => titles_splited[1].join("").indexOf(d) != -1);
-}
-
 
 async function checkTitleWithWorkId(danime, work_nodes) {
     //現状、vod情報はREST APIやgraphQLから取得できない。(存在はしている)
@@ -406,76 +378,17 @@ async function checkTitleWithWorkId(danime, work_nodes) {
         const danime_info = $("tr", db_html).toArray()
             .map(el => [$("td:eq(1)", el).text(), $("td:eq(5)", el).text()])
             .filter(d => d[0].indexOf(vod_dic[videoSite]) != -1)
-            .map(d => d[1].match(/\S+/));
-        if (danime_info.length == 0) continue;
-        console.log(annictId, danime_info, danime.workIds, danime.workIds.indexOf(danime_info[0][0]))
-        if (["danime", "abema", "netflix"].indexOf(danime.site)!=-1 && danime_info[0][0] == danime.workId) good_nodes.push(work_node);
+        if (danime_info.length == 0 || danime_info.map(d => d[1].match(/\S+/)).length == 0) continue;
+        const danime_info_id = danime_info.map(d => d[1].match(/\S+/))[0][0];
+        //console.log(annictId, danime_info_id, danime.workIds, danime.workIds.indexOf(danime_info_id))
+        if (["danime", "abema", "netflix"].indexOf(danime.site) != -1 && danime_info_id == danime.workId) good_nodes.push(work_node);
         else if (danime.site == "amazon" && danime.workIds.indexOf(danime_info[0][0]) != -1) good_nodes.push(work_node);
     }
     return good_nodes;
 }
 
-async function post2annict(node) {
-    // AnnictへのPOST
-    if (Object.keys(node).indexOf("IsZeroEpisode") != -1 && node.IsZeroEpisode) {
-        //作品に対する投稿は、status変更で対応
-        const parameters = { "work_id": node.annictId, kind: "watched", access_token: GLOBAL_access_token }
-        const url = `https://api.annict.com/v1/me/statuses?${Object.entries(parameters).map(d => d.join("=")).join("&")}`;
-        return await fetch(url, { method: "POST" }).then(res => res.status);
-    }
-    else {
-        const parameters = {
-            episode_id: node.annictId, access_token: GLOBAL_access_token,
-            share_twitter: GLOBAL_storage.withTwitter, share_facebook: GLOBAL_storage.withFacebook
-        };
-        const url = `https://api.annict.com/v1/me/records?${Object.entries(parameters).map(d => d.join("=")).join("&")}`;
-        return await fetch(url, { method: "POST" }).then(res => res.status);
-    }
-}
 
-async function post2webhook(args_dict) {
-    console.log("posting webhook");
-    const danime = args_dict.danime;
-    const origPostData = {
-        workTitle: danime.workTitle, episodeNumber: danime.episodeNumber,
-        episodeTitle: danime.episodeTitle,
-        danimeWorkId: danime.workId,
-        site: danime.site, error: args_dict.error
-    };
-    const webhookMatchingObj = {
-        "noWorkMatched": "webhookNoMatched", "noEpisodeMatched": "webhookNoMatched",
-        "noWorkId": "webhookNoWorkId", "none": "webhookSuccess"
-    }
-    const headers = {
-        "Accept": "application/json",
-        "Content-Type": "application/json"
-    }
-    let webhookSettings = checkWebhookSettings(GLOBAL_storage.webhookSettings);
-
-    for (const webhookSetting of Object.values(webhookSettings)) {
-        let postData = {};
-        if (webhookSetting.webhookContentChanged) {
-            const postJson = webhookSetting.webhookContent;
-            postData = Object.entries(postJson).reduce((obj, kv) => {
-                const val = kv[1].replace(/\{[^\{]+\}/g, s_in => {
-                    s = s_in.slice(1, -1);
-                    if (Object.keys(origPostData).indexOf(s) != -1) return origPostData[s];
-                    else return s;
-                });
-                return Object.assign(obj, { [kv[0]]: val });
-            }, {});
-        } else postData = origPostData;
-        //console.log(webhookSetting);
-        if (!Object.entries(webhookMatchingObj).some(kv => origPostData.error.indexOf(kv[0]) != -1 && webhookSetting[kv[1]])) continue;
-        let options = { method: "POST", headers: headers, body: JSON.stringify(postData) };
-        if (webhookSetting.postUrl.indexOf("://script.google.com/macros/") != -1) options.mode = "no-cors";
-        const res = await fetch(webhookSetting.postUrl, options);
-        //console.log(res);
-    }
-}
-
-
-async function fetchWork(title) {
+async function fetchWork(title, annictToken) {
     const query = `
     { searchWorks(
             titles:"${title}",
@@ -505,16 +418,107 @@ async function fetchWork(title) {
     const graphql_url = `https://api.annict.com/graphql?query=${query}`;
     //console.log(graphql_url)
     const headers = {
-        'Authorization': `Bearer ${GLOBAL_access_token}`
+        'Authorization': `Bearer ${annictToken}`
     };
-    const opts = {
-        method: "POST",
-        headers: headers
-    };
-    return await fetch(graphql_url, opts)
+    return await fetch(graphql_url, { method: "POST", headers: headers })
         .then(res => res.json())
-        .then(jsoned => jsoned.errors ? [] : jsoned.data.searchWorks.edges);
+        .then(jsoned => jsoned.errors ? [] : jsoned.data.searchWorks.edges.map(d => d.node));
 }
+
+function remakeString(input_str, mode = "title") {
+    if (!input_str) return input_str;
+    const delete_array = ["「", "」", "『", "』", "｢", "｣"];
+    const remake_dic = {
+        "〈": "＜", "〉": "＞",
+        "Ⅰ": "I", "Ⅱ": "II", "Ⅲ": "III", "Ⅳ": "IV", "Ⅴ": "V", "Ⅵ": "VI", "Ⅶ": "VII", "Ⅷ": "VIII", "Ⅸ": "IX", "Ⅹ": "X"
+    };
+    if (mode == "episodeNumber") {
+        return kanji2arab(input_str).replace(/[０-９]/g, s => // 全角=>半角
+            String.fromCharCode(s.charCodeAt(0) - 65248));
+    } else if (mode == "title") {
+        return input_str.replace(/[Ａ-Ｚａ-ｚ０-９：]/g, s => // 全角=>半角
+            String.fromCharCode(s.charCodeAt(0) - 65248))
+            .replace(new RegExp(delete_array.join("|"), "g"), "")
+            .replace(new RegExp(Object.keys(remake_dic).join("|"), "g"), match => remake_dic[match]);
+    }
+}
+
+function title2number(str) {
+    if (!str) return "";
+    const str2 = str.match(/\d+/);
+    return parseInt(str2, 10);
+}
+
+function checkTitle(titles, mode = "length") {
+    if (titles.some(d => !d)) return false;
+    const titles_splited = titles.map(d => remakeString(d, "title").split(GLOBAL_sep).filter(d => !/^\s*$/.test(d)));
+    if (mode == "length") return titles_splited[0].filter(d => titles_splited[1].join("").indexOf(d) != -1).length;
+    else if (mode == "every") return titles_splited[0].every(d => titles_splited[1].join("").indexOf(d) != -1);
+}
+
+// -------------- send record and webhook --------------
+
+async function sendAnnict(workInfo, items) {
+    if (!items.annictSend || items.token == "") return;
+    console.log("sending to Annict");
+    const danime = workInfo.danime;
+    let statuses = [];
+    for (const node of workInfo.nodes) {
+        // AnnictへのPOST
+        const IsZeroEpisode = (Object.keys(node).indexOf("IsZeroEpisode") != -1 && node.IsZeroEpisode)
+        //作品に対する投稿は、status変更で対応
+        const parameters = (IsZeroEpisode) ? { "work_id": node.annictId, kind: "watched", "access_token": items.token }
+            : { "episode_id": node.annictId, "access_token": items.token, "share_twitter": items.withTwitter, "share_facebook": items.withFacebook };
+        const url = (IsZeroEpisode) ? `https://api.annict.com/v1/me/statuses?${Object.entries(parameters).map(d => d.join("=")).join("&")}`
+            : `https://api.annict.com/v1/me/records?${Object.entries(parameters).map(d => d.join("=")).join("&")}`;
+        statuses.push(await fetch(url, { method: "POST" }).then(res => res.status));
+    }
+    const result_message = `${danime.workTitle} ${danime.episodeNumber} Annict sending ${statuses.every(d => d) ? 'successed' : 'failed'}.`;
+    console.log(result_message);
+    showMessage(result_message);
+}
+
+
+async function post2webhook(args_dict, webhookSettings_in) {
+    console.log("posting webhook");
+    const danime = args_dict.danime;
+    const origPostData = {
+        workTitle: danime.workTitle, episodeNumber: danime.episodeNumber,
+        episodeTitle: danime.episodeTitle,
+        danimeWorkId: danime.workId,
+        site: danime.site, error: args_dict.error
+    };
+    const webhookMatchingObj = {
+        "noWorkMatched": "webhookNoMatched", "noEpisodeMatched": "webhookNoMatched",
+        "noWorkId": "webhookNoWorkId", "none": "webhookSuccess"
+    }
+    const headers = {
+        "Accept": "application/json",
+        "Content-Type": "application/json"
+    }
+
+    const webhookSettings = checkWebhookSettings(webhookSettings_in);
+    for (const webhookSetting of Object.values(webhookSettings)) {
+        let postData = {};
+        if (webhookSetting.webhookContentChanged) {
+            postData = Object.entries(webhookSetting.webhookContent).reduce((obj, kv) => {
+                const val = kv[1].replace(/\{[^\{]+\}/g, s_in => {
+                    s = s_in.slice(1, -1);
+                    if (Object.keys(origPostData).indexOf(s) != -1) return origPostData[s];
+                    else return s;
+                });
+                return Object.assign(obj, { [kv[0]]: val });
+            }, {});
+        } else postData = origPostData;
+        //console.log(webhookSetting);
+        if (!Object.entries(webhookMatchingObj).some(kv => origPostData.error.indexOf(kv[0]) != -1 && webhookSetting[kv[1]])) continue;
+        let options = { method: "POST", headers: headers, body: JSON.stringify(postData) };
+        if (webhookSetting.postUrl.indexOf("://script.google.com/macros/") != -1) options.mode = "no-cors";
+        const res = await fetch(webhookSetting.postUrl, options);
+        //console.log(res);
+    }
+}
+
 
 function checkWebhookSettings(webhookSettingsTmp) {
     let webhookSettings = {};
@@ -529,7 +533,6 @@ function checkWebhookSettings(webhookSettingsTmp) {
 }
 
 //----------------Kanji2Arab: modified from http://aok.blue.coocan.jp/jscript/kan2arb.html---------------
-
 
 /********************************************************
  *
@@ -579,5 +582,7 @@ function toArb(input_kanji) {
     }
     return output_includeMag + output_num; // return output
 };
+
+
 
 
