@@ -67,7 +67,7 @@ $(async function () {
             if (video == null) return WatchingEpisodeLast;
             // amazon prime videoは一覧ページで既に「続きのエピソード」のvideoなどが用意されているので、実際の再生まで待機
             //console.log(video.webkitDecodedFrameCount)
-            if (videoSite == "amazon" && video.played.length==0) {
+            if (videoSite == "amazon" && video.played.length==0) { // played.lengthで判断したのはとてもよかった！
                 /*video.addEventListener("play", async () => {
                     firstSendingAmazon = false;
                     await mainFunc(videoSite, video);
@@ -183,7 +183,7 @@ function obtainWatching(videoSite) {
         const detailData=(scripts.isElcano.props.state.detail.detail[workId] || 
             scripts.isElcano.props.state.detail.headerDetail[workId]);
         const genres = detailData.genres.map(d=>d.text);
-        //console.log(detailData, genres)
+        console.log(detailData, genres)
         if (genres.indexOf("アニメ")==-1) return {};
 
         // obtain episode numbers
@@ -360,9 +360,9 @@ async function checkTitleWithWorkId(danime, work_nodes) {
             .filter(d => d[0].indexOf(vod_dic[videoSite]) != -1)
         if (danime_info.length == 0 || danime_info.map(d => d[1].match(/\S+/)).length == 0) continue;
         const danime_info_id = danime_info.map(d => d[1].match(/\S+/))[0][0];
-        //console.log(annictId, danime_info_id, danime.workIds, danime.workIds.indexOf(danime_info_id))
+        //console.log(annictId, danime_info_id, danime.workIds, danime_info)
         if (["danime", "abema", "netflix"].indexOf(danime.site) != -1 && danime_info_id == danime.workId) good_nodes.push(work_node);
-        else if (danime.site == "amazon" && danime.workIds.indexOf(danime_info[0][0]) != -1) good_nodes.push(work_node);
+        else if (danime.site == "amazon" && danime.workIds.indexOf(danime_info_id) != -1) good_nodes.push(work_node);
     }
     return good_nodes;
 }
