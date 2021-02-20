@@ -10,7 +10,7 @@ const webhookDefaultSetting = {
 const webhookDefaultString = JSON.stringify({ [Date.now()]: webhookDefaultSetting });
 
 // option
-const checkValid = Object.assign(...["danime", "amazon", "netflix", "abema"].map(key => Object({ [`valid_${key}`]: true })))
+const checkValid = Object.assign({"valid_danime":true}, ...["amazon", "netflix", "abema"].map(key => Object({ [`valid_${key}`]: false })))
 const inputObj = Object.assign({
     token: "", sendingTime: 300, annictSend: true,
     withTwitter: false, withFacebook: false, webhookSettings: webhookDefaultString
@@ -51,7 +51,7 @@ $(async function () {
 
         async function mainFunc(videoSite, video) {
             let RecordWillBeSent = true;
-            await videoTriggered("start", videoSite).then(d => {
+            await videoTriggered("start", videoSite, true).then(d => {
                 WorkInfo = d;
                 RecordWillBeSent = false;
             })
@@ -67,11 +67,12 @@ $(async function () {
             if (video == null) return WatchingEpisodeLast;
             // amazon prime videoは一覧ページで既に「続きのエピソード」のvideoなどが用意されているので、実際の再生まで待機
             //console.log(video.webkitDecodedFrameCount)
-            if (videoSite == "amazon" && firstSendingAmazon) {
-                video.addEventListener("play", async () => {
+            if (videoSite == "amazon" && video.played.length==0) {
+                /*video.addEventListener("play", async () => {
                     firstSendingAmazon = false;
                     await mainFunc(videoSite, video);
-                }, { once: true }) // onceがないと増殖する()
+                }, { once: true }) // onceがないと増殖する() */
+                return WatchingEpisodeLast;
             }
             // danime, abemaは作品内容が変化していればよし
             // また、abemaは一覧からエピソードを再生した場合、playやplayingを取得できないので、
@@ -86,48 +87,18 @@ $(async function () {
                 setTimeout(interval, 2 * 1000, WatchingEpisodeLast)
             });
     }
-    await interval("{}")
+    await interval("{}");
 })
 
 
+// ------------------------- functions for main ------------------------
 
-
-
-// --------- functions for main ---------
 const obtainVideoElement = (site) => {
     if (site == "danime") return $("#video")[0];
     else if (site == "amazon") return $("video[width='100%']")[0];
     else if (site == "netflix") return $("video")[0];
     else if (site == "abema") return $("video[preload='metadata']")[0];
 }
-/*async function loadMain(videoSite, trigger) {
-    let RecordWillBeSent = true;
-    let workInfo = {};
-
-    console.log(videoSite)
-    chrome.storage.sync.get(checkValid, items => {
-        if (!items[`valid_${videoSite}`]) return;
-    })
-
-    const videoSearching = setInterval(function () {
-        const video = obtainVideoElement(videoSite);
-        console.log(video)
-        if (video != null) {
-            clearInterval(videoSearching);
-            video.addEventListener(trigger, async function () {
-                await videoTriggered("start", videoSite, true).then(d => {
-                    workInfo = d[0];
-                    RecordWillBeSent = d[1];
-                })
-            }, { once: true });
-
-            video.addEventListener("ended", async () => { // video ended
-                await videoTriggered("end", videoSite, RecordWillBeSent, workInfo);
-            });
-        }
-    }, 1000)
-}*/
-
 
 
 async function videoTriggered(flag, videoSite, RecordWillBeSent = true, workInfo = {}) {
@@ -211,9 +182,9 @@ function obtainWatching(videoSite) {
         const workIds = scripts.isElcano.props.state.self[workId].asins;
         const detailData=(scripts.isElcano.props.state.detail.detail[workId] || 
             scripts.isElcano.props.state.detail.headerDetail[workId]);
-        //console.log(detailData)
         const genres = detailData.genres.map(d=>d.text);
-        if (genres.indexOf("アニメ")!=-1) return {};
+        //console.log(detailData, genres)
+        if (genres.indexOf("アニメ")==-1) return {};
 
         // obtain episode numbers
         const candidates_tmp = $("h2");
@@ -223,6 +194,7 @@ function obtainWatching(videoSite) {
                 return acc.concat([cand.textContent]);
             } else return acc;
         }, []);
+
         if (seasonAndEpisode.length != 1) return {};
         const episodeWriting = seasonAndEpisode[0].match(/(?<=シーズン\d+、エピソード\d+\s).*/);
         if (episodeWriting == null || episodeWriting.length == 0) return {};
@@ -356,7 +328,7 @@ async function identifyWork(WatchingEpisode, annictToken) {
     const valid_check_methods = [...Array(judge_kinds).keys()].filter(num => episodes_judges.filter(d => d[num]).length > 0);
     //console.log(danime, combinedEpisodeNode, episodes_numberAndCheck)
     const error_messages = [[valid_check_methods.length == 0, "noEpisodeMatched"], [!workIdIsFound, "noWorkId"]]
-        .filter(d => d[0]).map(d => d[1]).join(" ") || "none";
+        .filter(d => d[0]).map(d => d[1]).join(" ") || "none"; // なにもなければnone
     if (valid_check_methods.length > 0) {
         const episode_node = episodes_judges.map((d, ind) => [d[valid_check_methods[0]], combinedEpisodeNode[ind]])
             .filter(d => d[0]).map(d => d[1])[0];

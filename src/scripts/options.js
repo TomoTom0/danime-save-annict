@@ -10,7 +10,7 @@ const webhookKeys = {
     input: ["postUrl"]
 };
 
-const checkValid= Object.assign(...["danime", "amazon", "netflix", "abema"].map(key=>Object({[`valid_${key}`]:true})))
+const checkValid = Object.assign({"valid_danime":true}, ...["amazon", "netflix", "abema"].map(key => Object({ [`valid_${key}`]: false })))
 
 const otherKeys = {
     input: { token: "", sendingTime: 300 },
@@ -39,6 +39,7 @@ $(function () {
         Object.entries(items).forEach(kv => $(`#input_${kv[0]}`).val(kv[1]))
     );
     chrome.storage.sync.get(otherKeys.check, items => {
+        console.log(items)
         Object.entries(items).forEach(kv => $(`#check_${kv[0]}`).prop({checked:kv[1]}) )
     });
     //-------------- webhook ---------------
