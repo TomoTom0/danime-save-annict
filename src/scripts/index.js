@@ -64,17 +64,11 @@ $(async function () {
             //console.log(WatchingEpisodeNow);
             const video = obtainVideoElement(videoSite);
             // video要素がないなら最初から
-            // 通信が途切れてるときに
+            // 通信が途切れてるときに{}が返されることも
             if (video == null || WatchingEpisodeNow=="{}") return WatchingEpisodeLast;
             // amazon prime videoは一覧ページで既に「続きのエピソード」のvideoなどが用意されているので、実際の再生まで待機
-            //console.log(video.webkitDecodedFrameCount)
-            if (videoSite == "amazon" && video.played.length==0) { // played.lengthで判断したのはとてもよかった！
-                /*video.addEventListener("play", async () => {
-                    firstSendingAmazon = false;
-                    await mainFunc(videoSite, video);
-                }, { once: true }) // onceがないと増殖する() */
-                return WatchingEpisodeLast;
-            }
+            // played.lengthで判断したのはとてもよかった！
+            if (videoSite == "amazon" && video.played.length==0) return WatchingEpisodeLast;
             // danime, abemaは作品内容が変化していればよし
             // また、abemaは一覧からエピソードを再生した場合、playやplayingを取得できないので、
             // videoの挙動とは無関係に進める形に
@@ -107,7 +101,6 @@ async function videoTriggered(flag, videoSite, RecordWillBeSent = true, workInfo
     const WatchingEpisode = obtainWatching(videoSite);
     console.log(WatchingEpisode);
     if (flag == "start") {
-        //RecordWillBeSent = true;
         chrome.storage.sync.get({ token: "", sendingTime: 300 }, async items => {
             if (items.token == "") return;
             const sendingTime = (items.sendingTime - 0 > 0) ? items.sendingTime : 300;
@@ -123,7 +116,6 @@ async function videoTriggered(flag, videoSite, RecordWillBeSent = true, workInfo
                     if (workInfo != {} && workInfo.nodes != []) {
                         await sendRecord(workInfo, WatchingEpisode, RecordWillBeSent);
                     }
-                    //RecordWillBeSent = false;
                     chrome.storage.sync.set({ lastWatched: JSON.stringify(WatchingEpisode), lastVideoOver: false });
                 }, sendingTime * 1000);
             })
