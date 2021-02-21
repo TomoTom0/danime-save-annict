@@ -10,7 +10,7 @@ const webhookDefaultSetting = {
 const webhookDefaultString = JSON.stringify({ [Date.now()]: webhookDefaultSetting });
 
 // option
-const checkValid = Object.assign({"valid_danime":true}, ...["amazon", "netflix", "abema"].map(key => Object({ [`valid_${key}`]: false })))
+const checkValid = Object.assign({ "valid_danime": true }, ...["amazon", "netflix", "abema"].map(key => Object({ [`valid_${key}`]: false })))
 const inputObj = Object.assign({
     token: "", sendingTime: 300, annictSend: true,
     withTwitter: false, withFacebook: false, webhookSettings: webhookDefaultString
@@ -65,10 +65,10 @@ $(async function () {
             const video = obtainVideoElement(videoSite);
             // video要素がないなら最初から
             // 通信が途切れてるときに{}が返されることも
-            if (video == null || WatchingEpisodeNow=="{}") return WatchingEpisodeLast;
+            if (video == null || WatchingEpisodeNow == "{}") return WatchingEpisodeLast;
             // amazon prime videoは一覧ページで既に「続きのエピソード」のvideoなどが用意されているので、実際の再生まで待機
             // played.lengthで判断したのはとてもよかった！
-            if (videoSite == "amazon" && video.played.length==0) return WatchingEpisodeLast;
+            if (videoSite == "amazon" && video.played.length == 0) return WatchingEpisodeLast;
             // danime, abemaは作品内容が変化していればよし
             // また、abemaは一覧からエピソードを再生した場合、playやplayingを取得できないので、
             // videoの挙動とは無関係に進める形に
@@ -99,14 +99,14 @@ const obtainVideoElement = (site) => {
 async function videoTriggered(flag, videoSite, RecordWillBeSent = true, workInfo = {}) {
     console.log("start");
     const WatchingEpisode = obtainWatching(videoSite);
-    console.log(WatchingEpisode);
+    console.log("Watching:\n", WatchingEpisode);
     if (flag == "start") {
         chrome.storage.sync.get({ token: "", sendingTime: 300 }, async items => {
             if (items.token == "") return;
             const sendingTime = (items.sendingTime - 0 > 0) ? items.sendingTime : 300;
 
             await obtainWork(WatchingEpisode, items.token).then(async workInfo => {
-                console.log(workInfo);
+                console.log("Work Information:\n", workInfo);
                 if (workInfo == {} || workInfo.nodes == []) {
                     const error_message = `No Hit Title: ${workInfo.danime.workTitle}`;
                     showMessage(error_message);
@@ -141,7 +141,7 @@ async function sendRecord(workInfo, WatchingEpisode, RecordWillBeSent = true) {
         const IsSameMovie = (workInfo.nodes.some(d => d.media == "MOVIE")) && (lastWatched.workTitle == WatchingEpisode.workTitle);
         const IsSplitedEpisode = Object.entries({ workTitle: true, episodeTitle: true, episodeNumber: false, number: true })
             .every(kv => kv[1] == (lastWatched[kv[0]] == WatchingEpisode[kv[0]]));
-        console.log({ RecordWillBeSent, IsSuspended, IsSameMovie, IsSplitedEpisode })
+        console.log("Sending Condition:\n", { RecordWillBeSent, IsSuspended, IsSameMovie, IsSplitedEpisode })
         if (!IsSuspended && !IsSameMovie && !IsSplitedEpisode) {
             await post2webhook(workInfo.webhook, items.webhookSettings);
             await sendAnnict(workInfo, items);
@@ -174,11 +174,11 @@ function obtainWatching(videoSite) {
         }, {});
         const workId = scripts.isElcano.props.state.pageTitleId;
         const workIds = scripts.isElcano.props.state.self[workId].asins;
-        const detailData=(scripts.isElcano.props.state.detail.detail[workId] || 
+        const detailData = (scripts.isElcano.props.state.detail.detail[workId] ||
             scripts.isElcano.props.state.detail.headerDetail[workId]);
-        const genres = detailData.genres.map(d=>d.text);
+        const genres = detailData.genres.map(d => d.text);
         //console.log(detailData, genres)
-        if (genres.indexOf("アニメ")==-1) return {};
+        if (genres.indexOf("アニメ") == -1) return {};
 
         // obtain episode numbers
         const candidates_tmp = $("h2");
@@ -291,9 +291,9 @@ async function identifyWork(WatchingEpisode, annictToken) {
     if (result_nodes.length == 0) {
         return { danime: danime, nodes: [], webhook: { danime: danime, error: "noWorkMatched" } }
     }
-    let goodWorkNodes = await checkTitleWithWorkId(danime, result_nodes);
-    const workIdIsFound = (goodWorkNodes.length != 0);
-    if (!workIdIsFound) goodWorkNodes = result_nodes;
+    const goodWorkNodesTmp = await checkTitleWithWorkId(danime, result_nodes);
+    const workIdIsFound = (goodWorkNodesTmp.length != 0);
+    const goodWorkNodes = (workIdIsFound) ? goodWorkNodesTmp : result_nodes;
     console.log("Work Candidates:\n", goodWorkNodes);
 
     const combinedEpisodeNode = [].concat(...goodWorkNodes.map(workNode => {
@@ -353,10 +353,10 @@ async function checkTitleWithWorkId(danime, work_nodes) {
             .map(el => [$("td:eq(1)", el).text(), $("td:eq(5)", el).text()])
             .filter(d => d[0].indexOf(vod_dic[videoSite]) != -1)
         if (danime_info.length == 0 || danime_info.filter(d => d[1].match(/\S+/)).length == 0) continue;
-        const danime_info_ids = danime_info.map(d => d[1].match(/\S+/)).map(d=>d[0]); // idは複数存在しうる
+        const danime_info_ids = danime_info.map(d => d[1].match(/\S+/)).map(d => d[0]); // idは複数存在しうる
         //console.log(annictId, danime_info_id, danime.workIds, danime_info)
-        if (["danime", "abema", "netflix"].indexOf(danime.site) != -1 && danime_info_ids.some(id=>id== danime.workId) ) good_nodes.push(work_node);
-        else if (danime.site == "amazon" && danime_info_ids.some(id=>danime.workIds.indexOf(id) != -1)) good_nodes.push(work_node);
+        if (["danime", "abema", "netflix"].indexOf(danime.site) != -1 && danime_info_ids.some(id => id == danime.workId)) good_nodes.push(work_node);
+        else if (danime.site == "amazon" && danime_info_ids.some(id => danime.workIds.indexOf(id) != -1)) good_nodes.push(work_node);
     }
     return good_nodes;
 }
