@@ -37,7 +37,7 @@ $(async function () {
     })
 
 
-    let firstSendingAmazon = true;
+    //let firstSendingAmazon = true;
     const functionForInterval = async function (WatchingEpisodeLast) {
         const videoSite = Object.entries({
             danime: "https://anime.dmkt-sp.jp/animestore/sc_d_pc?partId", // for danime
@@ -64,7 +64,8 @@ $(async function () {
             //console.log(WatchingEpisodeNow);
             const video = obtainVideoElement(videoSite);
             // video要素がないなら最初から
-            if (video == null) return WatchingEpisodeLast;
+            // 通信が途切れてるときに
+            if (video == null || WatchingEpisodeNow=="{}") return WatchingEpisodeLast;
             // amazon prime videoは一覧ページで既に「続きのエピソード」のvideoなどが用意されているので、実際の再生まで待機
             //console.log(video.webkitDecodedFrameCount)
             if (videoSite == "amazon" && video.played.length==0) { // played.lengthで判断したのはとてもよかった！
@@ -479,18 +480,16 @@ async function post2webhook(args_dict, webhookSettings_in) {
 
     const webhookSettings = checkWebhookSettings(webhookSettings_in);
     for (const webhookSetting of Object.values(webhookSettings)) {
-        let postData = {};
-        if (webhookSetting.webhookContentChanged) {
-            postData = Object.entries(webhookSetting.webhookContent).reduce((obj, kv) => {
+        const postData = (webhookSetting.webhookContentChanged) ?
+            Object.entries(webhookSetting.webhookContent).reduce((obj, kv) => {
                 const val = kv[1].replace(/\{[^\{]+\}/g, s_in => {
                     s = s_in.slice(1, -1);
                     if (Object.keys(origPostData).indexOf(s) != -1) return origPostData[s];
-                    else return s;
+                    else return s_in;
                 });
                 return Object.assign(obj, { [kv[0]]: val });
-            }, {});
-        } else postData = origPostData;
-        //console.log(webhookSetting);
+            }, {}) : origPostData;
+        console.log(postData);
         if (!Object.entries(webhookMatchingObj).some(kv => origPostData.error.indexOf(kv[0]) != -1 && webhookSetting[kv[1]])) continue;
         let options = { method: "POST", headers: headers, body: JSON.stringify(postData) };
         if (webhookSetting.postUrl.indexOf("://script.google.com/macros/") != -1) options.mode = "no-cors";
