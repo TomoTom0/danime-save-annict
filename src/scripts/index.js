@@ -183,7 +183,7 @@ function obtainWatching(videoSite) {
         const detailData=(scripts.isElcano.props.state.detail.detail[workId] || 
             scripts.isElcano.props.state.detail.headerDetail[workId]);
         const genres = detailData.genres.map(d=>d.text);
-        console.log(detailData, genres)
+        //console.log(detailData, genres)
         if (genres.indexOf("アニメ")==-1) return {};
 
         // obtain episode numbers
@@ -464,7 +464,7 @@ async function post2webhook(args_dict, webhookSettings_in) {
     const danime = args_dict.danime;
     const origPostData = {
         workTitle: danime.workTitle, episodeNumber: danime.episodeNumber,
-        episodeTitle: danime.episodeTitle,
+        episodeTitle: danime.episodeTitle, vodWorkId: danime.workId,
         danimeWorkId: danime.workId,
         site: danime.site, error: args_dict.error
     };

@@ -3,8 +3,10 @@
 You can install from [Chrome Store](https://chrome.google.com/webstore/detail/danime-save-annict-2/kclfdffcicdnmfjaiikclpoldoojfnpj?hl=ja)
 
 ## Abstaract
-This chrome extension sends your watching record in [d-anime store](https://anime.dmkt-sp.jp/animestore/tp_pc) to [Annict](https://annict.jp/), and is forked from [kakunpc's Repository](https://github.com/kakunpc/danime-save-annict).  
-dアニメストアの視聴結果をAnnictに送るChrome拡張です。[kakunpcさんのRepository](https://github.com/kakunpc/danime-save-annict)からforkした改良版です。非常に多くの作品へ対応できるようになりました。
+This chrome extension sends your watching record in [d-anime store](https://anime.dmkt-sp.jp/animestore/tp_pc), [Amazon Prime Video]() and [Abema TV]() to [Annict](https://annict.jp/), and is forked from [kakunpc's Repository](https://github.com/kakunpc/danime-save-annict).  
+dアニメストア・Amazon Prime Video・Abema TVの視聴結果をAnnictに送るChrome拡張です。[kakunpcさんのRepository](https://github.com/kakunpc/danime-save-annict)からforkした改良版です。非常に多くの作品へ対応できるようになりました。
+
+2021/2/22追記: Amazon Prime Video・Abema TVに対応しました。
 
 **If you wanto to know details or how to use, please access to [Document on HackMD](https://hackmd.io/@ystl/Hy1h_mqcv/%2FyPgVV_bDS92mEUJJvWfk7g)**  
 **詳細や使い方はDocumentをご確認ください。: [Document on HackMD](https://hackmd.io/@ystl/Hy1h_mqcv/%2FyPgVV_bDS92mEUJJvWfk7g)**
@@ -19,7 +21,7 @@ dアニメストアの視聴結果をAnnictに送るChrome拡張です。[kakunp
 ## Feautures
 Details on [Quick Tutorial](https://hackmd.io/@ystl/Hy1h_mqcv/%2FQRGRL9xxT7G9iswfGnmGiQ)
 
-- **Sending to Annict**: Your watcihng record in d-anime store are sent to Annict.
+- **Sending to Annict**: Your watching record in some VOD sites are sent to Annict.
 - **Sending Option**: You can change some options about sending to Annict.
 - **Webhook**: Multi webhook posting are supported.
 ## Caution
