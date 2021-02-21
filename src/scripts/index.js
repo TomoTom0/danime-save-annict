@@ -136,12 +136,13 @@ async function sendRecord(workInfo, WatchingEpisode, RecordWillBeSent = true) {
     if (!RecordWillBeSent || workInfo == {} || workInfo.nodes == []) return;
     chrome.storage.sync.get(Object.assign({ lastWatched: JSON.stringify({}), lastVideoOver: true }, inputObj), async items => {
         const lastWatched = JSON.parse(items.lastWatched);
-        const IsSuspended = (WatchingEpisode == lastWatched) && !items.lastVideoOver;
+        //console.log({lastWatched, WatchingEpisode})
+        const IsSuspended = (JSON.stringify(WatchingEpisode) == JSON.stringify(lastWatched)) && !items.lastVideoOver;
         const IsSameMovie = (workInfo.nodes.some(d => d.media == "MOVIE")) && (lastWatched.workTitle == WatchingEpisode.workTitle);
         const IsSplitedEpisode = Object.entries({ workTitle: true, episodeTitle: true, episodeNumber: false, number: true })
             .every(kv => kv[1] == (lastWatched[kv[0]] == WatchingEpisode[kv[0]]));
-        //console.log({ RecordWillBeSent, IsSuspended, IsSameMovie, IsSplitedEpisode })
-        if (!IsSuspended || !IsSameMovie || !IsSplitedEpisode) {
+        console.log({ RecordWillBeSent, IsSuspended, IsSameMovie, IsSplitedEpisode })
+        if (!IsSuspended && !IsSameMovie && !IsSplitedEpisode) {
             await post2webhook(workInfo.webhook, items.webhookSettings);
             await sendAnnict(workInfo, items);
         }
@@ -351,11 +352,11 @@ async function checkTitleWithWorkId(danime, work_nodes) {
         const danime_info = $("tr", db_html).toArray()
             .map(el => [$("td:eq(1)", el).text(), $("td:eq(5)", el).text()])
             .filter(d => d[0].indexOf(vod_dic[videoSite]) != -1)
-        if (danime_info.length == 0 || danime_info.map(d => d[1].match(/\S+/)).length == 0) continue;
-        const danime_info_id = danime_info.map(d => d[1].match(/\S+/))[0][0];
+        if (danime_info.length == 0 || danime_info.filter(d => d[1].match(/\S+/)).length == 0) continue;
+        const danime_info_ids = danime_info.map(d => d[1].match(/\S+/)).map(d=>d[0]); // idは複数存在しうる
         //console.log(annictId, danime_info_id, danime.workIds, danime_info)
-        if (["danime", "abema", "netflix"].indexOf(danime.site) != -1 && danime_info_id == danime.workId) good_nodes.push(work_node);
-        else if (danime.site == "amazon" && danime.workIds.indexOf(danime_info_id) != -1) good_nodes.push(work_node);
+        if (["danime", "abema", "netflix"].indexOf(danime.site) != -1 && danime_info_ids.some(id=>id== danime.workId) ) good_nodes.push(work_node);
+        else if (danime.site == "amazon" && danime_info_ids.some(id=>danime.workIds.indexOf(id) != -1)) good_nodes.push(work_node);
     }
     return good_nodes;
 }
@@ -481,7 +482,7 @@ async function post2webhook(args_dict, webhookSettings_in) {
                 });
                 return Object.assign(obj, { [kv[0]]: val });
             }, {}) : origPostData;
-        console.log(postData);
+        //console.log(postData);
         if (!Object.entries(webhookMatchingObj).some(kv => origPostData.error.indexOf(kv[0]) != -1 && webhookSetting[kv[1]])) continue;
         let options = { method: "POST", headers: headers, body: JSON.stringify(postData) };
         if (webhookSetting.postUrl.indexOf("://script.google.com/macros/") != -1) options.mode = "no-cors";
