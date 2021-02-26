@@ -183,7 +183,8 @@ function obtainWatching(videoSite, genreLimit = true) {
         const workIdsSub=[].concat(...Object.values(scripts.isElcano.props.state.self).map(d=>d.asins))
         const detailData = (scripts.isElcano.props.state.detail.detail[workId] ||
             scripts.isElcano.props.state.detail.headerDetail[workId]);
-        const genres = detailData.genres.map(d => d.text);
+        const genresTmp = detailData.genres.map(d => d.text);
+        const genres = (genresTmp.length==0) ? ["アニメ"] : genresTmp;
         //console.log(detailData, genres)
         if (genres.indexOf("アニメ") == -1 && genreLimit) return {};
 
