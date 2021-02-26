@@ -56,7 +56,7 @@ $(async function () {
         async function mainFunc(WatchingEpisode, video) {
             let RecordWillBeSent = true;
             await videoTriggered("start", WatchingEpisode, true).then(d => {
-                WorkInfo = d;
+                workInfo = d;
                 RecordWillBeSent = false;
             })
             video.addEventListener("ended", async () => { // video ended
