@@ -121,7 +121,7 @@ async function videoTriggered(flag, WatchingEpisode, RecordWillBeSent = true, wo
                     if (workInfo != {} && workInfo.nodes != []) {
                         await sendRecord(workInfo, WatchingEpisode, RecordWillBeSent);
                     }
-                    chrome.storage.sync.set({ lastWatched: JSON.stringify(WatchingEpisode), lastVideoOver: false });
+                    chrome.storage.sync.set({ [`lastWatched_${WatchingEpisode.site}`]: JSON.stringify(WatchingEpisode), lastVideoOver: false });
                 }, sendingTime * 1000);
             })
         })
@@ -130,7 +130,7 @@ async function videoTriggered(flag, WatchingEpisode, RecordWillBeSent = true, wo
         if (workInfo != {} && workInfo.nodes != []) {
             await sendRecord(workInfo, WatchingEpisode, RecordWillBeSent);
         }
-        chrome.storage.sync.set({ lastWatched: JSON.stringify(WatchingEpisode), lastVideoOver: true });
+        chrome.storage.sync.set({ [`lastWatched_${WatchingEpisode.site}`]: JSON.stringify(WatchingEpisode), lastVideoOver: true });
         // 最後まで見た場合, lastVideoOver=trueで把握
     }
     return workInfo;
@@ -139,14 +139,14 @@ async function videoTriggered(flag, WatchingEpisode, RecordWillBeSent = true, wo
 
 async function sendRecord(workInfo, WatchingEpisode, RecordWillBeSent = true) {
     if (!RecordWillBeSent || workInfo == {} || workInfo.nodes == []) return;
-    chrome.storage.sync.get(Object.assign({ lastWatched: JSON.stringify({}), lastVideoOver: true }, inputObj), async items => {
-        const lastWatched = JSON.parse(items.lastWatched);
-        //console.log({lastWatched, WatchingEpisode})
+    chrome.storage.sync.get(Object.assign({ [`lastWatched_${WatchingEpisode.site}`]: JSON.stringify({}), lastVideoOver: true }, inputObj), async items => {
+        const lastWatched = JSON.parse(items[`lastWatched_${WatchingEpisode.site}`]);
+        //console.log({lastWatched, WatchingEpisode});
         const IsSuspended = (JSON.stringify(WatchingEpisode) == JSON.stringify(lastWatched)) && !items.lastVideoOver;
         const IsSameMovie = (workInfo.nodes.some(d => d.media == "MOVIE")) && (lastWatched.workTitle == WatchingEpisode.workTitle);
         const IsSplitedEpisode = Object.entries({ workTitle: true, episodeTitle: true, episodeNumber: false, number: true })
             .every(kv => kv[1] == (lastWatched[kv[0]] == WatchingEpisode[kv[0]]));
-        console.log("Sending Condition:\n", { RecordWillBeSent, IsSuspended, IsSameMovie, IsSplitedEpisode })
+        console.log("Sending Condition:\n", { RecordWillBeSent, IsSuspended, IsSameMovie, IsSplitedEpisode });
         if (!IsSuspended && !IsSameMovie && !IsSplitedEpisode) {
             await post2webhook(workInfo.webhook, items);
             await sendAnnict(workInfo, items);
