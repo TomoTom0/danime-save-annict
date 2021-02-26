@@ -180,6 +180,7 @@ function obtainWatching(videoSite, genreLimit = true) {
         }, {});
         const workId = scripts.isElcano.props.state.pageTitleId;
         const workIds = scripts.isElcano.props.state.self[workId].asins;
+        const workIdsSub=[].concat(...Object.values(scripts.isElcano.props.state.self).map(d=>d.asins))
         const detailData = (scripts.isElcano.props.state.detail.detail[workId] ||
             scripts.isElcano.props.state.detail.headerDetail[workId]);
         const genres = detailData.genres.map(d => d.text);
@@ -211,7 +212,8 @@ function obtainWatching(videoSite, genreLimit = true) {
             number: title2number(remakeString(episodeWriting[0].split(" ")[episodeNumebrInd], "episodeNumber")),
             genre: genres.join(" "),
             workId: workId,
-            workIds: workIds
+            workIds: workIds,
+            workIdsSub: workIdsSub
         }
     } else if (videoSite == "netflix") {
         const titleArea = $(".video-title>div");
@@ -435,7 +437,7 @@ function checkTitle(titles, mode = "length") {
 
 async function sendAnnict(workInfo, items) {
     const notSent = (!items.annictSend || !items[`valid_${workInfo.WatchingEpisode.site}Annict`]);
-    const IsNotAnime = (workInfo.WatchingEpisode.genre.indexOf("アニメ") != -1)
+    const IsNotAnime = (workInfo.WatchingEpisode.genre.indexOf("アニメ") == -1)
     if (notSent || IsNotAnime || items.token == "") return;
     console.log("sending to Annict");
     const WatchingEpisode = workInfo.WatchingEpisode;
