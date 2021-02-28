@@ -365,7 +365,7 @@ async function checkTitleWithWorkId(WatchingEpisode, work_nodes) {
         if (["danime", "abema", "netflix"].indexOf(WatchingEpisode.site) != -1 && vod_info_ids.some(id => id == WatchingEpisode.workId)) good_nodes.push(work_node);
         else if (WatchingEpisode.site == "amazon" && vod_info_ids.some(id => WatchingEpisode.workIds.indexOf(id) != -1)) good_nodes.push(work_node);
         // workIdが見つからなかった場合
-        // 低規制verの可能性を検討 <- 現在はdanimeの場合のみrest apiから調べる
+        // web verの可能性を検討 <- 現在はdanimeの場合のみrest apiから調べる
         if (["danime"].indexOf(WatchingEpisode.site) != -1) {
             const episodeTitle = WatchingEpisode.episodeTitle;
             const episodeNumber = WatchingEpisode.episodeNumber;
