@@ -162,6 +162,7 @@ function obtainWatching(videoSite, genreLimit = true) {
             episodeTitle: $(".backInfoTxt3").text(),
             episodeNumber: $(".backInfoTxt2").text(),
             number: title2number(remakeString($(".backInfoTxt2").text(), "episodeNumber")),
+            numberFromUrl: location.href.match(/(?<=partId=\d{5})\d{3}/)[0],
             genre: "アニメ",
             workId: location.href.match(/(?<=partId=)\d{5}/)[0],
             workIds: []
@@ -180,11 +181,11 @@ function obtainWatching(videoSite, genreLimit = true) {
         }, {});
         const workId = scripts.isElcano.props.state.pageTitleId;
         const workIds = scripts.isElcano.props.state.self[workId].asins;
-        const workIdsSub=[].concat(...Object.values(scripts.isElcano.props.state.self).map(d=>d.asins))
+        const workIdsSub = [].concat(...Object.values(scripts.isElcano.props.state.self).map(d => d.asins))
         const detailData = (scripts.isElcano.props.state.detail.detail[workId] ||
             scripts.isElcano.props.state.detail.headerDetail[workId]);
         const genresTmp = detailData.genres.map(d => d.text);
-        const genres = (genresTmp.length==0) ? ["アニメ"] : genresTmp;
+        const genres = (genresTmp.length == 0) ? ["アニメ"] : genresTmp;
         //console.log(detailData, genres)
         if (genres.indexOf("アニメ") == -1 && genreLimit) return {};
 
@@ -275,8 +276,8 @@ async function obtainWork(WatchingEpisode, annictToken) {
                 episodeTitle: "",
                 episodeNumber: `${number}`,
                 number: number
-            }, ...["site", "workTitle", "genre","workId", "workIds"]
-                .map(key=>Object({[key]: WatchingEpisode[key]})))
+            }, ...["site", "workTitle", "genre", "workId", "workIds"]
+                .map(key => Object({ [key]: WatchingEpisode[key] })))
 
             const workInfoTmp = await identifyWork(episodeNow, annictToken);
             if (workInfoTmp != {}) workInfos.push(workInfoTmp);
@@ -287,9 +288,10 @@ async function obtainWork(WatchingEpisode, annictToken) {
 }
 
 async function identifyWork(WatchingEpisode, annictToken) {
-    const remake={
-        episodeTitle:remakeString(WatchingEpisode.episodeTitle, "title"),
-        splitedTitle: WatchingEpisode.workTitle.split(GLOBAL_sep).filter(d => !/^\s*$/.test(d))};
+    const remake = {
+        episodeTitle: remakeString(WatchingEpisode.episodeTitle, "title"),
+        splitedTitle: WatchingEpisode.workTitle.split(GLOBAL_sep).filter(d => !/^\s*$/.test(d))
+    };
     const result_nodes = await fetchWork(remake.splitedTitle[0], annictToken);
     //console.log(result_nodes)
     if (result_nodes.length == 0) {
@@ -353,14 +355,32 @@ async function checkTitleWithWorkId(WatchingEpisode, work_nodes) {
             .then(d => d.getReader()).then(reader => reader.read())
             .then(db_reader => new TextDecoder("utf-8").decode(db_reader.value));
 
-        const danime_info = $("tr", db_html).toArray()
+        const vod_info = $("tr", db_html).toArray()
             .map(el => [$("td:eq(1)", el).text(), $("td:eq(5)", el).text()])
             .filter(d => d[0].indexOf(vod_dic[videoSite]) != -1)
-        if (danime_info.length == 0 || danime_info.filter(d => d[1].match(/\S+/)).length == 0) continue;
-        const danime_info_ids = danime_info.map(d => d[1].match(/\S+/)).map(d => d[0]); // idは複数存在しうる
+        if (vod_info.length == 0 || vod_info.filter(d => d[1].match(/\S+/)).length == 0) continue;
+        const vod_info_ids = vod_info.map(d => d[1].match(/\S+/)).map(d => d[0]); // idは複数存在しうる
         //console.log(annictId, danime_info_id, WatchingEpisode.workIds, danime_info)
-        if (["danime", "abema", "netflix"].indexOf(WatchingEpisode.site) != -1 && danime_info_ids.some(id => id == WatchingEpisode.workId)) good_nodes.push(work_node);
-        else if (WatchingEpisode.site == "amazon" && danime_info_ids.some(id => WatchingEpisode.workIds.indexOf(id) != -1)) good_nodes.push(work_node);
+        // workIdが見つかった場合
+        if (["danime", "abema", "netflix"].indexOf(WatchingEpisode.site) != -1 && vod_info_ids.some(id => id == WatchingEpisode.workId)) good_nodes.push(work_node);
+        else if (WatchingEpisode.site == "amazon" && vod_info_ids.some(id => WatchingEpisode.workIds.indexOf(id) != -1)) good_nodes.push(work_node);
+        // workIdが見つからなかった場合
+        // 低規制verの可能性を検討 <- 現在はdanimeの場合のみrest apiから調べる
+        if (["danime"].indexOf(WatchingEpisode.site) != -1) {
+            const episodeTitle = WatchingEpisode.episodeTitle;
+            const episodeNumber = WatchingEpisode.episodeNumber;
+            const numberFromUrl = WatchingEpisode.numberFromUrl;
+
+            const danime_infos = await Promise.all(vod_info_ids.map(async workIdTmp => {
+                const url = "https://anime.dmkt-sp.jp/animestore/rest/WS030101" + `?partId=${workIdTmp}${numberFromUrl}`
+                return await fetch(url).then(d => d.json())
+            })).then(infos => infos.filter(info => {
+                return (info.partTitle == episodeTitle) && (info.partDispNumber == episodeNumber);
+            }));
+            if (danime_infos.length==0) continue;
+            else good_nodes.push(work_node);
+        }
+
     }
     return good_nodes;
 }
