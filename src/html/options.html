@@ -83,6 +83,46 @@
                                     <button id="btn_sendingTime" type="button" class="saveButton btn btn-primary">保存</button>
                                 </div>
                             </div>
+                            <hr>
+                            <div class="form-group">
+                                <span class="h5">dアニメストア</span>
+                                <div class="custom-control custom-checkbox">
+                                    <input type="checkbox" class="custom-control-input check_settings" id="check_valid_danime">
+                                    <label class="custom-control-label">この拡張機能を有効にする</label>
+                                    <input type="checkbox" class="custom-control-input check_settings" id="check_valid_danimeAnnict" checked>
+                                    <label class="custom-control-label">Annict</label>
+                                    <input type="checkbox" class="custom-control-input check_settings" id="check_valid_danimeWebhook" checked>
+                                    <label class="custom-control-label">Webhook</label>
+                                    <input type="checkbox" class="custom-control-input check_settings" id="check_valid_danimeGenre" style="visibility: hidden;" checked>
+                                    <label class="custom-control-label" style="visibility: hidden;">アニメ以外でも有効にする</label>
+                                </div>
+                                <span class="h5">Amazon Prime Video </span>
+                                <div class="custom-control custom-checkbox">
+                                    <input type="checkbox" class="custom-control-input check_settings" id="check_valid_amazon">
+                                    <label class="custom-control-label">この拡張機能を有効にする</label>
+                                    <input type="checkbox" class="custom-control-input check_settings" id="check_valid_amazonAnnict" checked>
+                                    <label class="custom-control-label">Annict</label>
+                                    <input type="checkbox" class="custom-control-input check_settings" id="check_valid_amazonWebhook" checked>
+                                    <label class="custom-control-label">Webhook</label>
+                                    <input type="checkbox" class="custom-control-input check_settings" id="check_valid_amazonGenre">
+                                    <label class="custom-control-label">アニメ以外でも有効にする</label>
+                                </div>
+                                <span class="h5">AbemaTV </span>
+                                <div class="custom-control custom-checkbox">
+                                    <input type="checkbox" class="custom-control-input check_settings" id="check_valid_abema">
+                                    <label class="custom-control-label">この拡張機能を有効にする</label>
+                                    <input type="checkbox" class="custom-control-input check_settings" id="check_valid_abemaAnnict" checked>
+                                    <label class="custom-control-label">Annict</label>
+                                    <input type="checkbox" class="custom-control-input check_settings" id="check_valid_abemaWebhook" checked>
+                                    <label class="custom-control-label">Webhook</label>
+                                    <input type="checkbox" class="custom-control-input check_settings" id="check_valid_abemaGenre">
+                                    <label class="custom-control-label">アニメ以外でも有効にする</label>
+                                </div>
+                                <!--<div class="custom-control custom-checkbox">
+                                    <input type="checkbox" class="custom-control-input check_settings" id="check_valid_netflix">
+                                    <label class="custom-control-label">Netflixで有効にする</label>
+                                </div>-->
+                            </div>
                         </form>
                     </div>
                     <h2 id="forms">Webhook</h2>
@@ -141,8 +181,16 @@
                             <td><span data-position="4351" data-size="9">エピソードタイトル</span></td>
                             </tr>
                             <tr>
+                            <td><span data-position="4369" data-size="12">vodWorkId</span></td>
+                            <td><span data-position="4385" data-size="15">動画配信サイトのWork Id</span></td>
+                            </tr>    
+                            <tr>
                             <td><span data-position="4369" data-size="12">danimeWorkId</span></td>
-                            <td><span data-position="4385" data-size="15">dアニメストアのWork Id</span></td>
+                            <td><span data-position="4385" data-size="15"><code>vodWorkId</code>と同じ内容。<br>(こちらは近日中に削除予定)</span></td>
+                            </tr>
+                            <tr>
+                            <td><span data-position="4369" data-size="12">site</span></td>
+                            <td><span data-position="4385" data-size="15">閲覧した動画配信サイト <br>(danime, amazon, abema)</span></td>
                             </tr>
                             <tr>
                             <td><span data-position="4405" data-size="5">error</span></td>
