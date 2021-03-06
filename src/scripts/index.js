@@ -29,26 +29,41 @@ function showMessage(message, dialog_in) {
     )
 }
 
+const getSyncStorage = (key = null) => new Promise(resolve => {
+    chrome.storage.sync.get(key, resolve);
+});
+
+const setSyncStorage = (key = null) => new Promise(resolve => {
+    chrome.storage.sync.set(key, resolve);
+});
+
+const obtainVideoSite = () => {
+    const siteTmp = Object.entries({
+        danime: "https://anime.dmkt-sp.jp/animestore/sc_d_pc?partId", // for danime
+        amazon: "https://www.amazon.co.jp/gp/video/detail/", // for Amazon Prime
+        amazon_: "https://www.amazon.co.jp/dp/", // for Amazon Prime 2
+        netflix: "https://www.netflix.com/episode/", // for Netflix
+        abema: "https://abema.tv/video/" // for abemaTV
+    }).filter(kv => location.href.indexOf(kv[1]) != -1) || [];
+    return (siteTmp.map(kv => kv[0])[0] || []).replace(/_*$/, "")
+};
+
 $(async function () {
     $("<style>", { type: 'text/css' })
         .append(".dsa-dialog { position: fixed;  bottom: 60px;  right: 10px; border: 1px solid #888888;  padding: 2pt;  background-color: #ffffff;  filter: alpha(opacity=85);  -moz-opacity: 0.85;  -khtml-opacity: 0.85;  opacity: 0.85;      text-shadow: 0 -1px 1px #FFF, -1px 0 1px #FFF, 1px 0 1px #aaa;  -webkit-box-shadow: 1px 1px 2px #eeeeee;  -moz-box-shadow: 1px 1px 2px #eeeeee;  -webkit-border-radius: 3px;  -moz-border-radius: 3px; display: none;}")
         .appendTo("head");
     $("<div>", { class: "dsa-dialog" }).text("Message").appendTo("body");
 
-    chrome.storage.sync.get({ token: "" }, items => {
+    await getSyncStorage({ token: "" }).then(items=>{
         if (items.token == "") showMessage("There is no access token of `Annict`.");
     })
 
 
     //let firstSendingAmazon = true;
-    const functionForInterval = async function (WatchingEpisodeLast, items) {
-        const videoSite = Object.entries({
-            danime: "https://anime.dmkt-sp.jp/animestore/sc_d_pc?partId", // for danime
-            amazon: "https://www.amazon.co.jp/gp/video/detail/", // for Amazon Prime
-            amazon_: "https://www.amazon.co.jp/dp/", // for Amazon Prime 2
-            netflix: "https://www.netflix.com/episode/", // for Netflix
-            abema: "https://abema.tv/video/" // for abemaTV
-        }).filter(kv => location.href.indexOf(kv[1]) != -1).map(kv => kv[0])[0].replace(/_*$/, "");
+    const functionForInterval = async function (WatchingEpisodeLast) {
+        const videoSite = obtainVideoSite();
+        if (!videoSite) return;
+        const items=await getSyncStorage(checkValid2);
         const WatchingEpisode = obtainWatching(videoSite, items[`valid_${videoSite}Genre`]);
         const WatchingEpisodeNow = JSON.stringify(WatchingEpisode);
         //console.log(WatchingEpisodeNow, videoSite)
@@ -80,15 +95,13 @@ $(async function () {
         } return WatchingEpisodeNow;
     }
 
-    const interval = async (WatchingEpisodeLast = "{}", items) => {
-        await functionForInterval(WatchingEpisodeLast, items)
+    const interval = async (WatchingEpisodeLast = "{}") => {
+        await functionForInterval(WatchingEpisodeLast)
             .then(WatchingEpisodeLast => {
-                setTimeout(interval, 2 * 1000, WatchingEpisodeLast, items)
+                setTimeout(interval, 2 * 1000, WatchingEpisodeLast)
             });
     }
-    chrome.storage.sync.get(checkValid2, async items => {
-        await interval("{}", items);
-    })
+    await interval("{}");
 })
 
 
@@ -106,31 +119,30 @@ async function videoTriggered(flag, WatchingEpisode, RecordWillBeSent = true, wo
     console.log("start");
     console.log("Watching:\n", WatchingEpisode);
     if (flag == "start") {
-        chrome.storage.sync.get({ token: "", sendingTime: 300 }, async items => {
-            if (items.token == "") return;
-            const sendingTime = (items.sendingTime - 0 > 0) ? items.sendingTime : 300;
+        const items=await  getSyncStorage({ token: "", sendingTime: 300 });
+        if (items.token == "") return;
+        const sendingTime = (items.sendingTime - 0 > 0) ? items.sendingTime : 300;
 
-            await obtainWork(WatchingEpisode, items.token).then(async workInfo => {
-                console.log("Work Information:\n", workInfo);
-                if (workInfo == {} || workInfo.nodes == []) {
-                    const error_message = `No Hit Title: ${workInfo.WatchingEpisode.workTitle}`;
-                    showMessage(error_message);
-                    await post2webhook(workInfo.webhook);
+        await obtainWork(WatchingEpisode, items.token).then(async workInfo => {
+            console.log("Work Information:\n", workInfo);
+            if (workInfo == {} || workInfo.nodes == []) {
+                const error_message = `No Hit Title: ${workInfo.WatchingEpisode.workTitle}`;
+                showMessage(error_message);
+                await post2webhook(workInfo.webhook);
+            }
+            setTimeout(async () => { // in 5 min until video started
+                if (workInfo != {} && workInfo.nodes != []) {
+                    await sendRecord(workInfo, WatchingEpisode, RecordWillBeSent);
                 }
-                setTimeout(async () => { // in 5 min until video started
-                    if (workInfo != {} && workInfo.nodes != []) {
-                        await sendRecord(workInfo, WatchingEpisode, RecordWillBeSent);
-                    }
-                    chrome.storage.sync.set({ [`lastWatched_${WatchingEpisode.site}`]: JSON.stringify(WatchingEpisode), lastVideoOver: false });
-                }, sendingTime * 1000);
-            })
+                await setSyncStorage({ [`lastWatched_${WatchingEpisode.site}`]: JSON.stringify(WatchingEpisode), lastVideoOver: false });
+            }, sendingTime * 1000);
         })
 
     } else if (flag == "end") {
         if (workInfo != {} && workInfo.nodes != []) {
             await sendRecord(workInfo, WatchingEpisode, RecordWillBeSent);
         }
-        chrome.storage.sync.set({ [`lastWatched_${WatchingEpisode.site}`]: JSON.stringify(WatchingEpisode), lastVideoOver: true });
+        await setSyncStorage({ [`lastWatched_${WatchingEpisode.site}`]: JSON.stringify(WatchingEpisode), lastVideoOver: true });
         // 最後まで見た場合, lastVideoOver=trueで把握
     }
     return workInfo;
@@ -139,19 +151,18 @@ async function videoTriggered(flag, WatchingEpisode, RecordWillBeSent = true, wo
 
 async function sendRecord(workInfo, WatchingEpisode, RecordWillBeSent = true) {
     if (!RecordWillBeSent || workInfo == {} || workInfo.nodes == []) return;
-    chrome.storage.sync.get(Object.assign({ [`lastWatched_${WatchingEpisode.site}`]: JSON.stringify({}), lastVideoOver: true }, inputObj), async items => {
-        const lastWatched = JSON.parse(items[`lastWatched_${WatchingEpisode.site}`]);
-        //console.log({lastWatched, WatchingEpisode});
-        const IsSuspended = (JSON.stringify(WatchingEpisode) == JSON.stringify(lastWatched)) && !items.lastVideoOver;
-        const IsSameMovie = (workInfo.nodes.some(d => d.media == "MOVIE")) && (lastWatched.workTitle == WatchingEpisode.workTitle);
-        const IsSplitedEpisode = Object.entries({ workTitle: true, episodeTitle: true, episodeNumber: false, number: true })
-            .every(kv => kv[1] == (lastWatched[kv[0]] == WatchingEpisode[kv[0]]));
-        console.log("Sending Condition:\n", { RecordWillBeSent, IsSuspended, IsSameMovie, IsSplitedEpisode });
-        if (!IsSuspended && !IsSameMovie && !IsSplitedEpisode) {
-            await post2webhook(workInfo.webhook, items);
-            await sendAnnict(workInfo, items);
-        }
-    })
+    const items=await getSyncStorage(Object.assign({ [`lastWatched_${WatchingEpisode.site}`]: JSON.stringify({}), lastVideoOver: true }, inputObj));
+    const lastWatched = JSON.parse(items[`lastWatched_${WatchingEpisode.site}`]);
+    //console.log({lastWatched, WatchingEpisode});
+    const IsSuspended = (JSON.stringify(WatchingEpisode) == JSON.stringify(lastWatched)) && !items.lastVideoOver;
+    const IsSameMovie = (workInfo.nodes.some(d => d.media == "MOVIE")) && (lastWatched.workTitle == WatchingEpisode.workTitle);
+    const IsSplitedEpisode = Object.entries({ workTitle: true, episodeTitle: true, episodeNumber: false, number: true })
+        .every(kv => kv[1] == (lastWatched[kv[0]] == WatchingEpisode[kv[0]]));
+    console.log("Sending Condition:\n", { RecordWillBeSent, IsSuspended, IsSameMovie, IsSplitedEpisode });
+    if (!IsSuspended && !IsSameMovie && !IsSplitedEpisode) {
+        await post2webhook(workInfo.webhook, items);
+        await sendAnnict(workInfo, items);
+    }
 }
 
 function obtainWatching(videoSite, genreLimit = true) {
@@ -240,7 +251,7 @@ function obtainWatching(videoSite, genreLimit = true) {
         const workTitle = jsonData[2].name;
         const episodeWriting = [jsonData[3].name];
         const episodeNumebrInd_candidates = episodeWriting[0].split(" ").map((d, ind) => [ind, d])
-            .filter(d => isFinite(title2number(remakeString(d[1], "episodeNumber"))))
+            .filter(d => isFinite(title2number(remakeString(d[1], "episodeNumber"))));
         if (episodeNumebrInd_candidates.length == 0) return {};
         const episodeNumebrInd = Math.min(...episodeNumebrInd_candidates.map(d => d[0]));
         const workId = location.href.match(/(?<=abema\.tv\/video\/episode\/)[^_]+/)[0];
@@ -377,7 +388,7 @@ async function checkTitleWithWorkId(WatchingEpisode, work_nodes) {
             })).then(infos => infos.filter(info => {
                 return (info.partTitle == episodeTitle) && (info.partDispNumber == episodeNumber);
             }));
-            if (danime_infos.length==0) continue;
+            if (danime_infos.length == 0) continue;
             else good_nodes.push(work_node);
         }
 

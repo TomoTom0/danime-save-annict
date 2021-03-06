@@ -1,16 +1,18 @@
 # d-anime-save-annict-2
 
-You can install from [Chrome Store](https://chrome.google.com/webstore/detail/danime-save-annict-2/kclfdffcicdnmfjaiikclpoldoojfnpj?hl=ja)
-
 ## Abstaract
 This chrome extension sends your watching record in [d-anime store](https://anime.dmkt-sp.jp/animestore/tp_pc), [Amazon Prime Video](https://www.amazon.co.jp/Amazon-Video/) and [Abema TV](https://abema.tv/video/genre/animation) to [Annict](https://annict.jp/), and is forked from [kakunpc's Repository](https://github.com/kakunpc/danime-save-annict).  
 dアニメストア・Amazon Prime Video・Abema TVの視聴結果をAnnictに送るChrome拡張です。[kakunpcさんのRepository](https://github.com/kakunpc/danime-save-annict)からforkした改良版です。非常に多くの作品へ対応できるようになりました。
 
 2021/2/22追記: Amazon Prime Video・Abema TVに対応しました。
 
+<img src="img/dsaveAnnict-ssss.png" style="width:60%;">
+
+
 **If you wanto to know details or how to use, please access to [Document on HackMD](https://hackmd.io/@ystl/Hy1h_mqcv/%2FyPgVV_bDS92mEUJJvWfk7g)**  
 **詳細や使い方はDocumentをご確認ください。: [Document on HackMD](https://hackmd.io/@ystl/Hy1h_mqcv/%2FyPgVV_bDS92mEUJJvWfk7g)**
 
+You can install from [Chrome Store](https://chrome.google.com/webstore/detail/danime-save-annict-2/kclfdffcicdnmfjaiikclpoldoojfnpj?hl=ja)
 
 ----
 
