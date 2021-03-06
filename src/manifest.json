@@ -2,7 +2,7 @@
   "manifest_version": 2,
   "name": "danime-save-annict-2",
   "version": "0.6.0.0",
-  "description": "dアニメストア, Amazon Prime Video, AbemaTVの視聴結果をAnnictに送信します。 (改良版)",
+  "description": "dアニメストア, Amazon Prime Video, AbemaTVの視聴結果をAnnictに送信します。",
   "content_scripts": [
     {
       "matches": [
@@ -25,6 +25,6 @@
   "icons":{"128":"img/d-annict-icon128.png"},
   "web_accessible_resources":[
     "js/iziToast.min.js",
-    "styles/iziToast.min.css", ".env"
+    "styles/iziToast.min.css"
   ]
 }
