@@ -1,5 +1,5 @@
 
-.idea*
+.*
 *Zone.Identifier
 .env
 wiki/

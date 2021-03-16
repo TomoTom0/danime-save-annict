@@ -10,9 +10,13 @@ const webhookKeys = {
     input: ["postUrl"]
 };
 
+const checkValid1 = Object.assign({ "valid_danime": true }, ...["amazon",  "abema"].map(key => Object({ [`valid_${key}`]: false })))
+const checkValid2=Object.assign(...["danime","amazon", "abema"].map(key => 
+        Object({[`valid_${key}Annict`]:true, [`valid_${key}Webhook`]:true, [`valid_${key}Genre`]:false})));
+const checkValid=Object.assign(checkValid1, checkValid2);
 const otherKeys = {
     input: { token: "", sendingTime: 300 },
-    check: { annictSend: true, withTwitter:false, withFacebook:false }
+    check: Object.assign({ annictSend: true, withTwitter:false, withFacebook:false}, checkValid)
 }
 
 // メッセージ用のボックスをInjectする
@@ -37,6 +41,7 @@ $(function () {
         Object.entries(items).forEach(kv => $(`#input_${kv[0]}`).val(kv[1]))
     );
     chrome.storage.sync.get(otherKeys.check, items => {
+        //console.log(items)
         Object.entries(items).forEach(kv => $(`#check_${kv[0]}`).prop({checked:kv[1]}) )
     });
     //-------------- webhook ---------------
@@ -86,7 +91,16 @@ $(function () {
                 }
             })
         })
-    })
+    });
+    setTimeout(()=>{
+        ([].concat(["danime", "amazon", "abema"].map(vod=>
+            [`valid_${vod}`, [`valid_${vod}Annict`, `valid_${vod}Webhook`, `valid_${vod}Genre`]]
+        ), [[`annictSend`, ["danime", "amazon", "abema"]
+        .map(vod => `valid_${vod}Annict`).concat(["withTwitter", "withFacebook"])]]))
+        .map(d=>[$(`#check_${d[0]}`)[0], d[1].map(dd=>$( `#check_${dd}`)[0])])
+        .forEach(d=>chainCheckBox(d[0], d[1]))
+    }, 10)
+
 
 })
 
@@ -129,7 +143,15 @@ document.addEventListener("click", function (e) {
                 delete webhookSettings[webhookNum];
                 chrome.storage.sync.set({ webhookSettings: JSON.stringify(webhookSettings) });
             });
-        }
+        };
+        ([].concat(["danime", "amazon", "abema"].map(vod=>
+            [`valid_${vod}`, [`valid_${vod}Annict`, `valid_${vod}Webhook`, `valid_${vod}Genre`]]
+        ), [[`annictSend`, ["danime", "amazon", "abema"]
+        .map(vod => `valid_${vod}Annict`).concat(["withTwitter", "withFacebook"])]]))
+        .map(d=>[$(`#check_${d[0]}`)[0], d[1].map(dd=>$( `#check_${dd}`)[0])])
+        .forEach(d=>chainCheckBox(d[0], d[1]))
+    
+        
     } //----------- webhook content ------------
     else {
         const webhookNum = webhook_now.attr("id").match(/(?<=webhook_)\d+/)[0];
@@ -154,8 +176,8 @@ document.addEventListener("click", function (e) {
         else if (clicked_class.indexOf("btn_webhookSave") != -1) {
             const Keys = $(".webhookKey", webhookArea).map((ind, el) => $(el).val()).toArray();
             const Values = $(".webhookValue", webhookArea).map((ind, el) => $(el).val()).toArray();
-            const webhookContent = [...Array(Keys.length).keys()].reduce((obj, ind) => Object.assign(obj, { [Keys[ind]]: Values[ind] }), {});
-            const inputObjs = webhookKeys.input.reduce((obj, acc) => Object.assign(obj, { [acc]: $(`.input_${acc}`, webhook_now).val() }), {});
+            const webhookContent = Object.assign(...[...Array(Keys.length).keys()].map(ind => Object({ [Keys[ind]]: Values[ind] })));
+            const inputObjs = Object.assign(...webhookKeys.input.map(key => Object({ [key]: $(`.input_${key}`, webhook_now).val() })));
             chrome.storage.sync.get({ webhookSettings: webhookDefaultString }, items => {
                 let webhookSettings = checkWebhookSettings(items.webhookSettings);
                 webhookSettings[webhookNum].webhookContent = webhookContent;
@@ -175,6 +197,16 @@ document.addEventListener("click", function (e) {
         }
     }
 });
+
+function chainCheckBox(fromCheckbox, toCheckboxesIn, reverse=false){
+
+    //console.log({fromCheckbox, toCheckboxesIn, reverse})
+    const toCheckboxes = Array.from(toCheckboxesIn);
+    toCheckboxes.forEach(checkbox=>{
+        checkbox.disabled= (fromCheckbox.checked == reverse)
+    })
+}
+
 
 function addWebhookBlock(webhookNum) {
     //console.log(webhookNum)
@@ -245,8 +277,8 @@ function checkWebhookSettings(webhookSettingsTmp) {
     try { webhookSettings = JSON.parse(webhookSettingsTmp); }
     catch (e) {
         try {
-            webhookSettings = [...Array(webhookSettingsTmp.length).keys()]
-                .reduce((acc, cur) => Object.assign(acc, { [cur]: webhookSettingsTmp[cur] }, {}));
+            webhookSettings = Object.assign(...[...Array(webhookSettingsTmp.length).keys()]
+                .map(key => Object({ [key]: webhookSettingsTmp[key] })));
         } catch (e) { webhookSettings = JSON.parse(webhookDefaultString); }
     }
     return webhookSettings;
