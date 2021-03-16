@@ -1,4 +1,6 @@
+"use strict";
 
+// # setup
 
 const GLOBAL_sep = /\s+|;|・|\(|（|\)|）|～|‐|-|―|－|&|＆|#|＃|映画\s*|劇場版\s*|!|！|\?|？|…|『|』|「|」/g;
 
@@ -48,6 +50,7 @@ const obtainVideoSite = () => {
     return (siteTmp.map(kv => kv[0])[0] || []).replace(/_*$/, "")
 };
 
+// # async function
 $(async function () {
     $("<style>", { type: 'text/css' })
         .append(".dsa-dialog { position: fixed;  bottom: 60px;  right: 10px; border: 1px solid #888888;  padding: 2pt;  background-color: #ffffff;  filter: alpha(opacity=85);  -moz-opacity: 0.85;  -khtml-opacity: 0.85;  opacity: 0.85;      text-shadow: 0 -1px 1px #FFF, -1px 0 1px #FFF, 1px 0 1px #aaa;  -webkit-box-shadow: 1px 1px 2px #eeeeee;  -moz-box-shadow: 1px 1px 2px #eeeeee;  -webkit-border-radius: 3px;  -moz-border-radius: 3px; display: none;}")
@@ -67,7 +70,7 @@ $(async function () {
         const WatchingEpisode = obtainWatching(videoSite, items[`valid_${videoSite}Genre`]);
         const WatchingEpisodeNow = JSON.stringify(WatchingEpisode);
         //console.log(WatchingEpisodeNow, videoSite)
-
+        let workInfo={};
         async function mainFunc(WatchingEpisode, video) {
             let RecordWillBeSent = true;
             await videoTriggered("start", WatchingEpisode, true).then(d => {
@@ -104,8 +107,9 @@ $(async function () {
     await interval("{}");
 })
 
-
-// ------------------------- functions for main ------------------------
+// -------------------------------------------------
+//               # functions for main
+// -------------------------------------------------
 
 const obtainVideoElement = (site) => {
     if (site == "danime") return $("#video")[0];
@@ -269,7 +273,10 @@ function obtainWatching(videoSite, genreLimit = true) {
     else return {};
 }
 
-// -------------- find work -----------------
+// -------------------------------------------------
+//               # find work
+// -------------------------------------------------
+
 
 async function obtainWork(WatchingEpisode, annictToken) {
     const IsCombinedEpisode = (/～|／/.test(WatchingEpisode.episodeNumber) &&
@@ -465,7 +472,9 @@ function checkTitle(titles, mode = "length") {
     else if (mode == "every") return titles_splited[0].every(d => titles_splited[1].join("").indexOf(d) != -1);
 }
 
-// -------------- send record and webhook --------------
+// -------------------------------------------------
+//               # send records and webhook
+// -------------------------------------------------
 
 async function sendAnnict(workInfo, items) {
     const notSent = (!items.annictSend || !items[`valid_${workInfo.WatchingEpisode.site}Annict`]);
@@ -515,7 +524,7 @@ async function post2webhook(args_dict, items) {
         const postData = (webhookSetting.webhookContentChanged) ?
             Object.entries(webhookSetting.webhookContent).reduce((obj, kv) => {
                 const val = kv[1].replace(/\{[^\{]+\}/g, s_in => {
-                    s = s_in.slice(1, -1);
+                    const s = s_in.slice(1, -1);
                     if (Object.keys(origPostData).indexOf(s) != -1) return origPostData[s];
                     else return s_in;
                 });
@@ -543,7 +552,11 @@ function checkWebhookSettings(webhookSettingsTmp) {
     return webhookSettings;
 }
 
-//----------------Kanji2Arab: modified from http://aok.blue.coocan.jp/jscript/kan2arb.html---------------
+
+// -------------------------------------------------
+//               # Kanji2Arab
+// modified from http://aok.blue.coocan.jp/jscript/kan2arb.html
+// -------------------------------------------------
 
 /********************************************************
  *
