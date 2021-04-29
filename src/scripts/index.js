@@ -1,4 +1,4 @@
-"use strict";
+//"use strict";
 
 // # setup
 
@@ -57,7 +57,7 @@ $(async function () {
         .appendTo("head");
     $("<div>", { class: "dsa-dialog" }).text("Message").appendTo("body");
 
-    await getSyncStorage({ token: "" }).then(items=>{
+    await getSyncStorage({ token: "" }).then(items => {
         if (items.token == "") showMessage("There is no access token of `Annict`.");
     })
 
@@ -65,21 +65,24 @@ $(async function () {
     //let firstSendingAmazon = true;
     const functionForInterval = async function (WatchingEpisodeLast) {
         const videoSite = obtainVideoSite();
-        if (!videoSite) return;
-        const items=await getSyncStorage(checkValid2);
+        if (!videoSite) return WatchingEpisodeLast;
+        const items = await getSyncStorage(checkValid2);
         const WatchingEpisode = obtainWatching(videoSite, items[`valid_${videoSite}Genre`]);
         const WatchingEpisodeNow = JSON.stringify(WatchingEpisode);
         //console.log(WatchingEpisodeNow, videoSite)
-        let workInfo={};
+        let workInfo = {};
+        let RecordWillBeSent = true;
         async function mainFunc(WatchingEpisode, video) {
-            let RecordWillBeSent = true;
             await videoTriggered("start", WatchingEpisode, true).then(d => {
                 workInfo = d;
                 RecordWillBeSent = false;
             })
             video.addEventListener("ended", async () => { // video ended
-                await videoTriggered("end", WatchingEpisode, RecordWillBeSent, workInfo)
+                await videoTriggered("end", WatchingEpisode, RecordWillBeSent, workInfo).then(()=>{
+                    RecordWillBeSent = true;
+                });
             })
+            return JSON.stringify(WatchingEpisode);
         }
 
         if (WatchingEpisodeNow != WatchingEpisodeLast) {
@@ -94,8 +97,8 @@ $(async function () {
             // danime, abemaは作品内容が変化していればよし
             // また、abemaは一覧からエピソードを再生した場合、playやplayingを取得できないので、
             // videoの挙動とは無関係に進める形に
-            else await mainFunc(WatchingEpisode, video);
-        } return WatchingEpisodeNow;
+            else return await mainFunc(WatchingEpisode, video); // WatchingEpisodeNow
+        } return WatchingEpisodeLast;
     }
 
     const interval = async (WatchingEpisodeLast = "{}") => {
@@ -123,7 +126,7 @@ async function videoTriggered(flag, WatchingEpisode, RecordWillBeSent = true, wo
     console.log("start");
     console.log("Watching:\n", WatchingEpisode);
     if (flag == "start") {
-        const items=await  getSyncStorage({ token: "", sendingTime: 300 });
+        const items = await getSyncStorage({ token: "", sendingTime: 300 });
         if (items.token == "") return;
         const sendingTime = (items.sendingTime - 0 > 0) ? items.sendingTime : 300;
 
@@ -155,7 +158,7 @@ async function videoTriggered(flag, WatchingEpisode, RecordWillBeSent = true, wo
 
 async function sendRecord(workInfo, WatchingEpisode, RecordWillBeSent = true) {
     if (!RecordWillBeSent || workInfo == {} || workInfo.nodes == []) return;
-    const items=await getSyncStorage(Object.assign({ [`lastWatched_${WatchingEpisode.site}`]: JSON.stringify({}), lastVideoOver: true }, inputObj));
+    const items = await getSyncStorage(Object.assign({ [`lastWatched_${WatchingEpisode.site}`]: JSON.stringify({}), lastVideoOver: true }, inputObj));
     const lastWatched = JSON.parse(items[`lastWatched_${WatchingEpisode.site}`]);
     //console.log({lastWatched, WatchingEpisode});
     const IsSuspended = (JSON.stringify(WatchingEpisode) == JSON.stringify(lastWatched)) && !items.lastVideoOver;
@@ -581,21 +584,24 @@ function toArb(input_kanji) {
     let output_num = 0;
     let output_includeMag = 0;
     for (const input_char of input_kanji) {
-        if ((numIn = const_kanji.num.char.indexOf(input_char)) != -1) { //0-9
+        const numIn = const_kanji.num.char.indexOf(input_char);
+        const numMag1 = const_kanji.mag1.char.indexOf(input_char);
+        const numMag2 = const_kanji.mag2.char.indexOf(input_char);
+        if (numIn != -1) { //0-9
             if (IsAfterMag) {
                 output_num += numIn % 10;
                 IsAfterMag = false;
             } else {
                 output_num = output_num * 10 + numIn % 10;
             }
-        } else if ((numMag1 = const_kanji.mag1.char.indexOf(input_char)) != -1) { // 10^[1-3]
+        } else if (numMag1 != -1) { // 10^[1-3]
             output_includeMag += output_num;
             output_num = 0;
             const mag_tmp = output_includeMag % 10;
             const num_tmp = (mag_tmp == 0 ? 1 : mag_tmp) * 10 ** (numMag1 % const_kanji.mag1.limit + 1);
             output_includeMag += num_tmp - mag_tmp;
             IsAfterMag = true;
-        } else if ((numMag2 = const_kanji.mag2.char.indexOf(input_char)) != -1) { // 10^4n
+        } else if (numMag2 != -1) { // 10^4n
             output_includeMag += output_num;
             output_num = 0;
             const mag_tmp = output_includeMag % 10000;

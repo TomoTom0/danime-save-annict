@@ -1,7 +1,7 @@
 {
   "manifest_version": 2,
   "name": "danime-save-annict-2",
-  "version": "0.6.2.0",
+  "version": "0.6.3.0",
   "description": "dアニメストア, Amazon Prime Video, AbemaTVの視聴結果をAnnictに送信します。Webhookも送信できます。",
   "content_scripts": [
     {
