@@ -41,7 +41,7 @@ const setSyncStorage = (key = null) => new Promise(resolve => {
 
 const obtainVideoSite = () => {
     const siteTmp = Object.entries({
-        danime: "https://anime.dmkt-sp.jp/animestore/sc_d_pc?partId", // for danime
+        danime: "https://animestore.docomo.ne.jp/animestore/sc_d_pc?partId", // for danime
         amazon: "https://www.amazon.co.jp/gp/video/detail/", // for Amazon Prime
         amazon_: "https://www.amazon.co.jp/dp/", // for Amazon Prime 2
         netflix: "https://www.netflix.com/episode/", // for Netflix
@@ -393,7 +393,7 @@ async function checkTitleWithWorkId(WatchingEpisode, work_nodes) {
             const numberFromUrl = WatchingEpisode.numberFromUrl;
 
             const danime_infos = await Promise.all(vod_info_ids.map(async workIdTmp => {
-                const url = "https://anime.dmkt-sp.jp/animestore/rest/WS030101" + `?partId=${workIdTmp}${numberFromUrl}`
+                const url = "https://animestore.docomo.ne.jp/animestore/rest/WS030101" + `?partId=${workIdTmp}${numberFromUrl}`
                 return await fetch(url).then(d => d.json())
             })).then(infos => infos.filter(info => {
                 return (info.partTitle == episodeTitle) && (info.partDispNumber == episodeNumber);
