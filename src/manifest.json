@@ -21,7 +21,7 @@
   "permissions": [
     "storage"
   ],
-  "optional_permissions":["https://api.annict.com/"],
+  "host_permissions":["https://api.annict.com/"],
   "icons":{"128":"img/d-annict-icon128.png"},
   "web_accessible_resources":[{
     "resources":[
